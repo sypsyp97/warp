@@ -3,8 +3,6 @@ mod figma_utils;
 mod model;
 mod movement;
 mod snapshot;
-#[cfg(feature = "voice_input")]
-mod voice;
 
 /// The editor interfaces that we publicly expose to consumers.
 /// This should be a very limited set; if you need to add something here,
@@ -1395,9 +1393,6 @@ pub enum BaselinePositionComputationMethod {
     /// computation for a Line (ultimately uses TOP_BOTTOM_RATIO).
     Default,
 }
-
-// Re-export voice transcription types for backwards compatibility
-pub use crate::voice::transcriber::{Transcriber, VoiceTranscriber};
 
 /// Similar to [`ImageContext`], but contains un-processed and un-resized image data.
 #[derive(Clone)]
