@@ -3,40 +3,35 @@ use crate::OnboardingEvent;
 
 use super::OnboardingSlide;
 use pathfinder_color::ColorU;
-use pathfinder_geometry::vector::vec2f;
 use ui_components::{button, Component as _, Options as _};
 use warp_core::send_telemetry_from_ctx;
 use warp_core::ui::{appearance::Appearance, theme::color::internal_colors, Icon};
 use warpui::{
     elements::{
         shimmering_text::{ShimmerConfig, ShimmeringTextElement, ShimmeringTextStateHandle},
-        Align, ChildAnchor, ConstrainedBox, Container, CrossAxisAlignment, Flex,
-        FormattedTextElement, MainAxisAlignment, MainAxisSize, MouseStateHandle, OffsetPositioning,
-        ParentAnchor, ParentElement, ParentOffsetBounds, Stack,
+        Align, ConstrainedBox, Container, CrossAxisAlignment, Flex, FormattedTextElement,
+        MainAxisAlignment, MainAxisSize, ParentElement,
     },
     keymap::Keystroke,
     text_layout::TextAlignment,
-    ui_components::components::{UiComponent as _, UiComponentStyles},
-    AppContext, Element, Entity, ModelHandle, SingletonEntity as _, TypedActionView, View,
-    ViewContext,
+    AppContext, Element, Entity, ModelHandle, TypedActionView, View, ViewContext,
 };
 
+/// Slim-fork variant: no Warp login. The intro slide just sends the
+/// user into setup, and a follow-up message points them at Settings → AI
+/// to enter their own API key.
 #[derive(Clone, Debug)]
-pub enum IntroSlideEvent {
-    LoginRequested,
-}
+pub enum IntroSlideEvent {}
 
 #[derive(Clone, Debug)]
 pub enum IntroSlideAction {
     GetStartedClicked,
-    LoginClicked,
 }
 
 pub struct IntroSlide {
     onboarding_state: ModelHandle<OnboardingStateModel>,
     get_started_button: button::Button,
     shimmering_title_handle: ShimmeringTextStateHandle,
-    login_mouse_state: MouseStateHandle,
 }
 
 impl IntroSlide {
@@ -45,7 +40,6 @@ impl IntroSlide {
             onboarding_state,
             get_started_button: button::Button::default(),
             shimmering_title_handle: ShimmeringTextStateHandle::new(),
-            login_mouse_state: MouseStateHandle::default(),
         }
     }
 }
@@ -61,60 +55,10 @@ impl View for IntroSlide {
 
     fn render(&self, app: &AppContext) -> Box<dyn Element> {
         let appearance = Appearance::as_ref(app);
-        let theme = appearance.theme();
         let content = self.render_centered_content(appearance);
         let constrained = ConstrainedBox::new(content).with_max_width(421.).finish();
         // Background is rendered by the parent onboarding view (including background images).
-        let centered = Container::new(Align::new(constrained).finish()).finish();
-
-        let sub_text_color = internal_colors::text_sub(theme, theme.background().into_solid());
-        let ui_builder = appearance.ui_builder();
-        let disclaimer_styles = UiComponentStyles {
-            font_color: Some(sub_text_color),
-            font_size: Some(12.),
-            ..Default::default()
-        };
-
-        let login_row = Flex::row()
-            .with_child(
-                ui_builder
-                    .span("Already have an account? ")
-                    .with_style(disclaimer_styles)
-                    .build()
-                    .finish(),
-            )
-            .with_child(
-                ui_builder
-                    .link(
-                        "Log in".into(),
-                        None,
-                        Some(Box::new(|ctx| {
-                            ctx.dispatch_typed_action(IntroSlideAction::LoginClicked);
-                        })),
-                        self.login_mouse_state.clone(),
-                    )
-                    .soft_wrap(false)
-                    .with_style(UiComponentStyles {
-                        font_size: Some(12.),
-                        ..Default::default()
-                    })
-                    .build()
-                    .finish(),
-            )
-            .finish();
-
-        let mut stack = Stack::new();
-        stack.add_child(centered);
-        stack.add_positioned_child(
-            login_row,
-            OffsetPositioning::offset_from_parent(
-                vec2f(0., -28.),
-                ParentOffsetBounds::ParentBySize,
-                ParentAnchor::BottomMiddle,
-                ChildAnchor::BottomMiddle,
-            ),
-        );
-        stack.finish()
+        Container::new(Align::new(constrained).finish()).finish()
     }
 }
 
@@ -159,13 +103,26 @@ impl IntroSlide {
 
         let subtitle_color = internal_colors::text_sub(theme, theme.background().into_solid());
         let subtitle = FormattedTextElement::from_str(
-            "A modern terminal with state of the art agents built in.",
+            "A modern terminal with built-in agents — bring your own LLM API key.",
             appearance.ui_font_family(),
             16.,
         )
         .with_color(subtitle_color)
         .with_alignment(TextAlignment::Center)
         .with_line_height_ratio(1.0)
+        .finish();
+
+        let hint_color = internal_colors::fg_overlay_4(theme);
+        let setup_hint = FormattedTextElement::from_str(
+            "After setup, open Settings → AI → BYO LLM Provider to enter your \
+             Anthropic or OpenAI-compatible API key. \
+             You can also export WARP_BYO_PROVIDER and WARP_BYO_API_KEY for headless use.",
+            appearance.ui_font_family(),
+            12.,
+        )
+        .with_color(hint_color)
+        .with_alignment(TextAlignment::Center)
+        .with_line_height_ratio(1.2)
         .finish();
 
         let enter = Keystroke::parse("enter").unwrap_or_default();
@@ -191,6 +148,7 @@ impl IntroSlide {
             .with_child(logo)
             .with_child(title)
             .with_child(Container::new(subtitle).with_margin_top(12.).finish())
+            .with_child(Container::new(setup_hint).with_margin_top(8.).finish())
             .with_child(
                 Container::new(get_started_button)
                     .with_margin_top(24.)
@@ -207,10 +165,6 @@ impl TypedActionView for IntroSlide {
         match action {
             IntroSlideAction::GetStartedClicked => {
                 self.get_started_clicked(ctx);
-            }
-            IntroSlideAction::LoginClicked => {
-                send_telemetry_from_ctx!(OnboardingEvent::WelcomeLoginClicked, ctx);
-                ctx.emit(IntroSlideEvent::LoginRequested);
             }
         }
     }
