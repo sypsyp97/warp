@@ -1446,6 +1446,71 @@ define_settings_group!(AISettings, settings: [
         sync_to_cloud: SyncToCloud::Never,
         private: true,
     }
+
+    // BYO (bring-your-own) LLM provider config. The slim fork routes AI
+    // requests directly to the user's chosen provider instead of Warp's
+    // relay. Empty `byo_provider_kind` falls back to environment variables
+    // (WARP_BYO_PROVIDER, WARP_BYO_API_KEY, WARP_BYO_MODEL, WARP_BYO_BASE_URL,
+    // WARP_BYO_SYSTEM_PROMPT) for headless / dev-shell usage.
+    //
+    // Valid values: "anthropic" | "openai" | "" (empty = unset).
+    byo_provider_kind: ByoProviderKind {
+        type: String,
+        default: String::new(),
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Never,
+        private: false,
+        toml_path: "byo.provider",
+        description: "Which BYO LLM provider to use ('anthropic' or 'openai').",
+    }
+
+    // API key for the configured BYO provider. Never synced — kept on this
+    // device only, like other credentials.
+    byo_api_key: ByoApiKey {
+        type: String,
+        default: String::new(),
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Never,
+        private: true,
+        toml_path: "byo.api_key",
+        description: "API key for the configured BYO LLM provider.",
+    }
+
+    // Model name to send to the provider. Empty = use the provider's
+    // default (claude-sonnet-4-5-20250929 for Anthropic, gpt-4o-mini for
+    // OpenAI-compatible).
+    byo_model: ByoModel {
+        type: String,
+        default: String::new(),
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Never,
+        private: false,
+        toml_path: "byo.model",
+        description: "Model name override for the BYO LLM provider.",
+    }
+
+    // Optional base URL override (e.g. for OpenAI-compatible third-party
+    // gateways like Together, Groq, OpenRouter, or a local Ollama server).
+    byo_base_url: ByoBaseUrl {
+        type: String,
+        default: String::new(),
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Never,
+        private: false,
+        toml_path: "byo.base_url",
+        description: "Optional base URL override for the BYO LLM provider.",
+    }
+
+    // Optional system prompt prepended to every request.
+    byo_system_prompt: ByoSystemPrompt {
+        type: String,
+        default: String::new(),
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Never,
+        private: false,
+        toml_path: "byo.system_prompt",
+        description: "Optional system prompt for the BYO LLM provider.",
+    }
 ]);
 
 impl AISettings {
@@ -1453,6 +1518,12 @@ impl AISettings {
         Self::register(app);
         app.add_singleton_model(FocusedTerminalInfo::new);
         CompiledCommandsForCodingAgentToolbar::register(app);
+
+        // Seed the BYO config snapshot with whatever settings were loaded
+        // from disk, so the async server path can read provider/key/etc.
+        // without an AppContext.
+        #[cfg(not(target_family = "wasm"))]
+        Self::push_byo_snapshot(app);
 
         app.update_model(&Self::handle(app), |_me, ctx| {
             ctx.subscribe_to_model(&FocusedTerminalInfo::handle(ctx), |_me, event, ctx| {
@@ -1463,6 +1534,31 @@ impl AISettings {
                     });
                 }
             });
+        });
+
+        // Refresh the BYO snapshot whenever any AISettings field changes.
+        // Cheap (a handful of string clones) and avoids enumerating every
+        // byo_* variant explicitly.
+        #[cfg(not(target_family = "wasm"))]
+        app.subscribe_to_model(
+            &Self::handle(app),
+            |_me, _event: &AISettingsChangedEvent, ctx| {
+                Self::push_byo_snapshot(ctx);
+            },
+        );
+    }
+
+    /// Copy the current BYO fields into the global snapshot consumed
+    /// by `crate::server::byo_adapter`.
+    #[cfg(not(target_family = "wasm"))]
+    fn push_byo_snapshot(app: &AppContext) {
+        let me = Self::as_ref(app);
+        crate::server::byo_adapter::set_byo_snapshot(crate::server::byo_adapter::ByoSnapshot {
+            kind: me.byo_provider_kind.value().clone(),
+            api_key: me.byo_api_key.value().clone(),
+            model: me.byo_model.value().clone(),
+            base_url: me.byo_base_url.value().clone(),
+            system_prompt: me.byo_system_prompt.value().clone(),
         });
     }
 

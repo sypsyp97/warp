@@ -31,11 +31,44 @@ use byo_provider::{
     ProviderKind, Role,
 };
 use futures::stream::{BoxStream, StreamExt};
+use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use prost_types::FieldMask;
 use uuid::Uuid;
 use warp_multi_agent_api as api;
 
 use crate::server::server_api::{AIApiError, AIOutputStream};
+
+// ---------------------------------------------------------------------------
+// Settings snapshot
+// ---------------------------------------------------------------------------
+//
+// `byo_adapter::run_byo_chat` is reached from async `ServerApi` calls that
+// have no `AppContext`, so they cannot read `AISettings` directly.  The
+// settings layer pushes a snapshot here whenever the user updates BYO
+// fields; the async path reads the snapshot and falls back to env vars
+// when the snapshot is empty (useful for headless / dev shells).
+
+#[derive(Default, Clone, Debug)]
+pub struct ByoSnapshot {
+    pub kind: String,
+    pub api_key: String,
+    pub model: String,
+    pub base_url: String,
+    pub system_prompt: String,
+}
+
+static BYO_SNAPSHOT: Lazy<RwLock<ByoSnapshot>> = Lazy::new(|| RwLock::new(ByoSnapshot::default()));
+
+/// Update the live BYO config snapshot.  Called from the AISettings
+/// registration / change-event subscriber on the GPUI thread.
+pub fn set_byo_snapshot(snapshot: ByoSnapshot) {
+    *BYO_SNAPSHOT.write() = snapshot;
+}
+
+fn current_byo_snapshot() -> ByoSnapshot {
+    BYO_SNAPSHOT.read().clone()
+}
 
 /// Drive a single BYO-provider chat round and yield faked
 /// `ResponseEvent`s that look like Warp's multi-agent server.
@@ -59,7 +92,7 @@ pub async fn run_byo_chat(
 }
 
 // ---------------------------------------------------------------------------
-// Provider config (env-var loader; settings UI is phase 2 follow-up)
+// Provider config (settings snapshot first, env-var fallback)
 // ---------------------------------------------------------------------------
 
 const ENV_PROVIDER: &str = "WARP_BYO_PROVIDER";
@@ -69,21 +102,40 @@ const ENV_BASE_URL: &str = "WARP_BYO_BASE_URL";
 const ENV_SYSTEM: &str = "WARP_BYO_SYSTEM_PROMPT";
 
 fn load_provider_config() -> Result<ProviderConfig, String> {
-    let kind_raw = std::env::var(ENV_PROVIDER)
-        .map_err(|_| format!("{ENV_PROVIDER} not set (expected 'anthropic' or 'openai')"))?;
+    let snap = current_byo_snapshot();
+
+    let kind_raw = if !snap.kind.is_empty() {
+        snap.kind.clone()
+    } else {
+        std::env::var(ENV_PROVIDER).map_err(|_| {
+            "BYO provider not configured. Set it in Settings → AI, or export \
+             WARP_BYO_PROVIDER + WARP_BYO_API_KEY (provider must be 'anthropic' or 'openai')."
+                .to_string()
+        })?
+    };
     let kind = match kind_raw.to_ascii_lowercase().as_str() {
         "anthropic" => ProviderKind::Anthropic,
         "openai" | "openai-compatible" | "compatible" => ProviderKind::OpenAI,
-        other => return Err(format!("{ENV_PROVIDER}={other:?} is not 'anthropic' or 'openai'")),
+        other => return Err(format!("BYO provider {other:?} is not 'anthropic' or 'openai'")),
     };
-    let api_key = std::env::var(ENV_API_KEY)
-        .map_err(|_| format!("{ENV_API_KEY} not set"))?;
-    let model = std::env::var(ENV_MODEL).unwrap_or_else(|_| match kind {
-        ProviderKind::Anthropic => "claude-sonnet-4-5-20250929".to_string(),
-        ProviderKind::OpenAI => "gpt-4o-mini".to_string(),
-    });
-    let base_url = std::env::var(ENV_BASE_URL).ok();
-    let system_prompt = std::env::var(ENV_SYSTEM).ok();
+
+    let api_key = if !snap.api_key.is_empty() {
+        snap.api_key.clone()
+    } else {
+        std::env::var(ENV_API_KEY).map_err(|_| {
+            "BYO API key is empty. Set it in Settings → AI, or export WARP_BYO_API_KEY.".to_string()
+        })?
+    };
+
+    let model = first_non_empty(&snap.model, std::env::var(ENV_MODEL).ok().as_deref())
+        .unwrap_or_else(|| match kind {
+            ProviderKind::Anthropic => "claude-sonnet-4-5-20250929".to_string(),
+            ProviderKind::OpenAI => "gpt-4o-mini".to_string(),
+        });
+
+    let base_url = first_non_empty(&snap.base_url, std::env::var(ENV_BASE_URL).ok().as_deref());
+    let system_prompt =
+        first_non_empty(&snap.system_prompt, std::env::var(ENV_SYSTEM).ok().as_deref());
 
     Ok(ProviderConfig {
         kind,
@@ -93,6 +145,14 @@ fn load_provider_config() -> Result<ProviderConfig, String> {
         system_prompt,
         max_tokens: 4096,
     })
+}
+
+fn first_non_empty(primary: &str, fallback: Option<&str>) -> Option<String> {
+    if !primary.is_empty() {
+        Some(primary.to_string())
+    } else {
+        fallback.filter(|s| !s.is_empty()).map(|s| s.to_string())
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -1461,6 +1461,7 @@ impl AISettingsPageView {
                     widgets.push(Box::new(AIFactWidget::default()));
                 }
                 widgets.push(Box::new(CLIAgentWidget::default()));
+                widgets.push(Box::new(ByoLlmProviderWidget::new(ctx)));
                 widgets.push(Box::new(ApiKeysWidget::new(ctx)));
                 widgets.push(Box::new(AwsBedrockWidget::new(ctx)));
                 widgets.push(Box::new(OtherAIWidget::default()));
@@ -1493,6 +1494,7 @@ impl AISettingsPageView {
                     widgets.push(Box::new(ActiveAIWidget::default()));
                 }
                 widgets.push(Box::new(AIInputWidget::default()));
+                widgets.push(Box::new(ByoLlmProviderWidget::new(ctx)));
                 widgets.push(Box::new(ApiKeysWidget::new(ctx)));
                 widgets.push(Box::new(AwsBedrockWidget::new(ctx)));
                 widgets.push(Box::new(OtherAIWidget::default()));
@@ -6555,6 +6557,248 @@ impl SettingsWidget for AwsBedrockWidget {
                 .finish(),
             )
             .with_child(self.render_aws_bedrock_section(appearance, app, is_bedrock_available));
+
+        Container::new(column.finish())
+            .with_margin_bottom(HEADER_PADDING)
+            .finish()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// BYO LLM Provider widget
+// ---------------------------------------------------------------------------
+//
+// Slim-fork addition: lets the user configure their own LLM provider
+// (Anthropic or any OpenAI-compatible endpoint) directly from Settings →
+// AI.  The values are written to `AISettings` (`byo_*` fields), which a
+// subscriber in `crate::settings::ai` mirrors into a global snapshot so
+// the async `byo_adapter` can read them without an `AppContext`.
+//
+// All five fields are simple strings, so there's no toggle/dropdown
+// machinery to wire up; we mirror the editor pattern from
+// `AwsBedrockWidget::new` for consistency.
+
+struct ByoLlmProviderWidget {
+    provider_kind_editor: ViewHandle<EditorView>,
+    api_key_editor: ViewHandle<EditorView>,
+    model_editor: ViewHandle<EditorView>,
+    base_url_editor: ViewHandle<EditorView>,
+    system_prompt_editor: ViewHandle<EditorView>,
+}
+
+impl ByoLlmProviderWidget {
+    fn new(ctx: &mut ViewContext<<Self as SettingsWidget>::View>) -> Self {
+        let ai_settings = AISettings::as_ref(ctx);
+
+        let initial_kind = ai_settings.byo_provider_kind.value().clone();
+        let initial_api_key = ai_settings.byo_api_key.value().clone();
+        let initial_model = ai_settings.byo_model.value().clone();
+        let initial_base_url = ai_settings.byo_base_url.value().clone();
+        let initial_system_prompt = ai_settings.byo_system_prompt.value().clone();
+
+        let provider_kind_editor =
+            Self::build_editor(ctx, &initial_kind, "anthropic | openai", false);
+        Self::wire_editor_save(ctx, &provider_kind_editor, |settings, value, ctx| {
+            let _ = settings.byo_provider_kind.set_value(value, ctx);
+        });
+
+        let api_key_editor = Self::build_editor(ctx, &initial_api_key, "sk-…", true);
+        Self::wire_editor_save(ctx, &api_key_editor, |settings, value, ctx| {
+            let _ = settings.byo_api_key.set_value(value, ctx);
+        });
+
+        let model_editor = Self::build_editor(
+            ctx,
+            &initial_model,
+            "leave empty for provider default",
+            false,
+        );
+        Self::wire_editor_save(ctx, &model_editor, |settings, value, ctx| {
+            let _ = settings.byo_model.set_value(value, ctx);
+        });
+
+        let base_url_editor = Self::build_editor(
+            ctx,
+            &initial_base_url,
+            "leave empty for provider default",
+            false,
+        );
+        Self::wire_editor_save(ctx, &base_url_editor, |settings, value, ctx| {
+            let _ = settings.byo_base_url.set_value(value, ctx);
+        });
+
+        let system_prompt_editor =
+            Self::build_editor(ctx, &initial_system_prompt, "(optional)", false);
+        Self::wire_editor_save(ctx, &system_prompt_editor, |settings, value, ctx| {
+            let _ = settings.byo_system_prompt.set_value(value, ctx);
+        });
+
+        Self {
+            provider_kind_editor,
+            api_key_editor,
+            model_editor,
+            base_url_editor,
+            system_prompt_editor,
+        }
+    }
+
+    fn build_editor(
+        ctx: &mut ViewContext<<Self as SettingsWidget>::View>,
+        initial_text: &str,
+        placeholder: &'static str,
+        is_password: bool,
+    ) -> ViewHandle<EditorView> {
+        let initial_text = initial_text.to_string();
+        ctx.add_typed_action_view(move |ctx| {
+            let appearance = Appearance::as_ref(ctx);
+            let options = SingleLineEditorOptions {
+                is_password,
+                text: TextOptions {
+                    font_size_override: Some(appearance.ui_font_size()),
+                    font_family_override: Some(appearance.monospace_font_family()),
+                    text_colors_override: Some(TextColors {
+                        default_color: appearance.theme().active_ui_text_color(),
+                        disabled_color: appearance.theme().disabled_ui_text_color(),
+                        hint_color: appearance.theme().disabled_ui_text_color(),
+                    }),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let mut editor = EditorView::single_line(options, ctx);
+            editor.set_placeholder_text(placeholder, ctx);
+            editor.set_buffer_text(&initial_text, ctx);
+            editor
+        })
+    }
+
+    fn wire_editor_save<F>(
+        ctx: &mut ViewContext<<Self as SettingsWidget>::View>,
+        editor: &ViewHandle<EditorView>,
+        save: F,
+    ) where
+        F: 'static + Fn(&mut AISettings, String, &mut warpui::ModelContext<AISettings>),
+    {
+        ctx.subscribe_to_view(editor, move |_, editor, event, ctx| {
+            if matches!(event, EditorEvent::Blurred | EditorEvent::Enter) {
+                let value = editor.as_ref(ctx).buffer_text(ctx);
+                AISettings::handle(ctx).update(ctx, |settings, ctx| {
+                    save(settings, value, ctx);
+                });
+            }
+        });
+    }
+
+    fn render_input_row(
+        appearance: &Appearance,
+        label: &'static str,
+        editor: ViewHandle<EditorView>,
+        is_enabled: bool,
+        app: &AppContext,
+    ) -> Box<dyn Element> {
+        let padding = Some(Coords {
+            top: 10.,
+            bottom: 10.,
+            left: 16.,
+            right: 16.,
+        });
+        let editor_style = UiComponentStyles {
+            padding,
+            background: Some(appearance.theme().surface_2().into()),
+            ..Default::default()
+        };
+
+        let label = Text::new_inline(label, appearance.ui_font_family(), CONTENT_FONT_SIZE)
+            .with_color(styles::header_font_color(is_enabled, app).into())
+            .finish();
+
+        let input = appearance
+            .ui_builder()
+            .text_input(editor)
+            .with_style(editor_style)
+            .build()
+            .finish();
+
+        Flex::column()
+            .with_spacing(8.)
+            .with_child(label)
+            .with_child(input)
+            .finish()
+    }
+}
+
+impl SettingsWidget for ByoLlmProviderWidget {
+    type View = AISettingsPageView;
+
+    fn search_terms(&self) -> &str {
+        "byo bring your own llm api key anthropic openai claude gpt provider model base url system prompt"
+    }
+
+    fn render(
+        &self,
+        _view: &Self::View,
+        appearance: &Appearance,
+        app: &AppContext,
+    ) -> Box<dyn Element> {
+        let ai_settings = AISettings::as_ref(app);
+        let is_any_ai_enabled = ai_settings.is_any_ai_enabled(app);
+
+        let header = build_sub_header(
+            appearance,
+            "BYO LLM Provider",
+            Some(styles::header_font_color(is_any_ai_enabled, app)),
+        )
+        .with_padding_bottom(HEADER_PADDING)
+        .finish();
+
+        let intro = render_ai_setting_description(
+            "Send AI requests directly to your own Anthropic or OpenAI-compatible endpoint. \
+             Leave Provider blank to fall back to the WARP_BYO_* environment variables.".to_string(),
+            is_any_ai_enabled,
+            app,
+        );
+
+        let mut column = Flex::column()
+            .with_spacing(16.)
+            .with_child(render_separator(appearance))
+            .with_child(header)
+            .with_child(intro);
+
+        column.add_child(Self::render_input_row(
+            appearance,
+            "Provider (anthropic | openai)",
+            self.provider_kind_editor.clone(),
+            is_any_ai_enabled,
+            app,
+        ));
+        column.add_child(Self::render_input_row(
+            appearance,
+            "API Key",
+            self.api_key_editor.clone(),
+            is_any_ai_enabled,
+            app,
+        ));
+        column.add_child(Self::render_input_row(
+            appearance,
+            "Model",
+            self.model_editor.clone(),
+            is_any_ai_enabled,
+            app,
+        ));
+        column.add_child(Self::render_input_row(
+            appearance,
+            "Base URL",
+            self.base_url_editor.clone(),
+            is_any_ai_enabled,
+            app,
+        ));
+        column.add_child(Self::render_input_row(
+            appearance,
+            "System Prompt",
+            self.system_prompt_editor.clone(),
+            is_any_ai_enabled,
+            app,
+        ));
 
         Container::new(column.finish())
             .with_margin_bottom(HEADER_PADDING)
