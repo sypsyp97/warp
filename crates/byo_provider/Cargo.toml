@@ -1,0 +1,18 @@
+[package]
+name = "byo_provider"
+version = "0.1.0"
+edition = "2021"
+description = "Bring-your-own LLM provider clients (Anthropic Messages / OpenAI Chat Completions / OpenAI-compatible) for the slim fork."
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+futures.workspace = true
+log.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
