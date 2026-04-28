@@ -1,4 +1,6 @@
 pub mod block;
+#[cfg(not(target_family = "wasm"))]
+pub mod byo_adapter;
 pub mod cloud_objects;
 pub mod datetime_ext;
 pub mod experiments;
