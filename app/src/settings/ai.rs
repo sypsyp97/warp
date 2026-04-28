@@ -1575,11 +1575,8 @@ impl AISettings {
         self.is_active_ai_enabled(app) && *self.intelligent_autosuggestions_enabled_internal
     }
 
-    pub fn is_voice_input_enabled(&self, app: &warpui::AppContext) -> bool {
-        // Voice input is conditionally-compiled because it requires additional dependencies on some platforms.
-        cfg!(feature = "voice_input")
-            && self.is_any_ai_enabled(app)
-            && *self.voice_input_enabled_internal
+    pub fn is_voice_input_enabled(&self, _app: &warpui::AppContext) -> bool {
+        false
     }
 
     /// Returns `true` if input autodetection is enabled.

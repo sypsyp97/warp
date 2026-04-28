@@ -425,28 +425,9 @@ impl WorkspaceAction {
     }
 }
 
-/// Helper function to build the list of agent tips, including the voice tip if enabled.
-pub fn get_agent_tips(ctx: &AppContext) -> Vec<AgentTip> {
-    let mut tips = DEFAULT_TIPS.clone();
-
-    if cfg!(feature = "voice_input")
-        && UserWorkspaces::as_ref(ctx).is_voice_enabled()
-        && AISettings::as_ref(ctx).is_voice_input_enabled(ctx)
-    {
-        tips.push(AgentTip {
-            description: "Hold <keybinding> to speak your prompt directly to the agent."
-                .to_string(),
-            link: Some(
-                "https://docs.warp.dev/agent-platform/local-agents/interacting-with-agents/voice"
-                    .to_string(),
-            ),
-            binding_name: Some("FN"),
-            action: None,
-            kind: AgentTipKind::General,
-        });
-    }
-
-    tips
+/// Helper function to build the list of agent tips.
+pub fn get_agent_tips(_ctx: &AppContext) -> Vec<AgentTip> {
+    DEFAULT_TIPS.clone()
 }
 
 /// A model for managing tips with cooldown logic.
