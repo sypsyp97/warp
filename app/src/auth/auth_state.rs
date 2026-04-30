@@ -3,7 +3,6 @@ use std::sync::{
     Arc,
 };
 
-use chrono::{DateTime, Duration, Utc};
 use parking_lot::RwLock;
 use uuid::Uuid;
 use warp_graphql::object_permissions::OwnerType;
@@ -17,8 +16,6 @@ use super::{
     user::{AnonymousUserType, PersonalObjectLimits, PrincipalType, User},
     UserUid,
 };
-
-const ANONYMOUS_USER_NOTIFICATION_BLOCK_TIMER: Duration = Duration::days(7);
 
 /// AuthState holds information about the currently-logged in user.
 /// If you need to access AuthState, you can use the AuthStateProvider singleton model.
@@ -229,16 +226,6 @@ impl AuthState {
         self.user.read().as_ref().map(|user| user.needs_sso_link)
     }
 
-    /// Returns the anonymous user type.
-    /// Note that a `Some()` value here does NOT mean the user is still anonymous;
-    /// they might have since signed up, but we keep their anonymous user type around.
-    pub fn anonymous_user_type(&self) -> Option<AnonymousUserType> {
-        self.user
-            .read()
-            .as_ref()
-            .and_then(|user| user.anonymous_user_type())
-    }
-
     /// Returns the personal object limits the user has.
     /// Currently, only anonymous users have limits.
     pub fn personal_object_limits(&self) -> Option<PersonalObjectLimits> {
@@ -277,26 +264,6 @@ impl AuthState {
     pub(super) fn set_needs_reauth(&self, new_needs_reauth: bool) -> bool {
         let prev_needs_reauth = self.needs_reauth.swap(new_needs_reauth, Ordering::Relaxed);
         !prev_needs_reauth && new_needs_reauth
-    }
-
-    /// Returns whether or not the renotification block to encourage anonymous users to sign up
-    /// has expired.
-    pub fn anonymous_user_renotification_block_expired(
-        &self,
-        last_time_opt: Option<String>,
-    ) -> bool {
-        self.is_anonymous_user_feature_gated().unwrap_or_default()
-            && last_time_opt
-                .and_then(|last_time_string| last_time_string.parse::<DateTime<Utc>>().ok())
-                .is_none_or(|last_time| {
-                    Utc::now() - ANONYMOUS_USER_NOTIFICATION_BLOCK_TIMER >= last_time
-                })
-    }
-
-    /// Returns whether or not the user is on a work domain.
-    /// This calculation is done on the server, using a list of
-    pub fn is_on_work_domain(&self) -> Option<bool> {
-        self.user.read().as_ref().map(|user| user.is_on_work_domain)
     }
 
     /// Returns whether the current user is authenticated via API key.

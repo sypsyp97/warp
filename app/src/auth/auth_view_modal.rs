@@ -18,7 +18,6 @@
 
 use crate::auth::login_failure_notification::LoginFailureReason;
 use crate::auth::UserUid;
-use crate::auth::credentials::RefreshToken;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use url::Url;
@@ -50,7 +49,7 @@ const AUTH_URL_STATE_QUERY_PARAM: &str = "state";
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct AuthRedirectPayload {
-    pub refresh_token: RefreshToken,
+    pub refresh_token: String,
     pub user_uid: Option<UserUid>,
     pub deleted_anonymous_user: Option<bool>,
     pub state: Option<String>,
@@ -68,7 +67,7 @@ impl AuthRedirectPayload {
                 .map(|uid| UserUid::new(uid));
 
             Ok(Self {
-                refresh_token: RefreshToken::new(token),
+                refresh_token: token.to_string(),
                 user_uid,
                 deleted_anonymous_user: query_params
                     .get(AUTH_URL_DELETED_ANON_USER_QUERY_PARAM)
