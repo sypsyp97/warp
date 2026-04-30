@@ -204,8 +204,10 @@ pub trait AuthClient: 'static + Send + Sync {
         timeout: Duration,
     ) -> StdResult<FirebaseToken, UserAuthenticationError>;
     // API Keys
+    #[allow(dead_code)]
     async fn list_api_keys(&self) -> Result<Vec<ApiKeyProperties>>;
 
+    #[allow(dead_code)]
     async fn create_api_key(
         &self,
         name: String,
@@ -213,6 +215,7 @@ pub trait AuthClient: 'static + Send + Sync {
         expires_at: Option<warp_graphql::scalars::Time>,
     ) -> Result<GenerateApiKeyResult>;
 
+    #[allow(dead_code)]
     async fn expire_api_key(&self, key_uid: &ApiKeyUid) -> Result<ExpireApiKeyResult>;
 
     /// Returns a cached ambient workload token, or issues a new one if not present or expired.

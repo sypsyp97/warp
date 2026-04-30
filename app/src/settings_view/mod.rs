@@ -93,7 +93,6 @@ pub mod mcp_servers;
 pub mod mcp_servers_page;
 mod nav;
 pub mod pane_manager;
-mod platform;
 mod platform_page;
 mod privacy;
 mod privacy_page;
