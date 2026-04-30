@@ -133,6 +133,7 @@ lazy_static! {
 /// that this is hard-coded for the default Dark theme. This is because it is only used by the
 /// AuthView and OnboardingSurveyModal which do not respect the chosen theme. So, do not use this for Views
 /// which respect themes.
+#[allow(dead_code)]
 pub(crate) fn unthemed_window_border() -> Border {
     if cfg!(all(not(target_os = "macos"), not(target_family = "wasm"))) {
         // The 15% blend of fg into bg is the "ui surface" color.

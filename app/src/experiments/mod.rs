@@ -10,7 +10,7 @@ mod login_layer;
 mod rendering;
 pub use block_onboarding_layer::{BlockOnboarding, BLOCK_ONBOARDING_LAYER};
 pub use improved_palette_search_layer::{ImprovedPaletteSearch, IMPROVED_PALETTE_SEARCH_LAYER};
-pub use login_layer::{AuthFlowInstructions, LOGIN_LAYER};
+pub use login_layer::LOGIN_LAYER;
 use warp_core::user_preferences::GetUserPreferences as _;
 
 use crate::auth::auth_state::AuthStateProvider;

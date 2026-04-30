@@ -1,13 +1,9 @@
 pub mod anonymous_id;
 pub mod auth_manager;
-mod auth_override_warning_body;
 pub mod auth_override_warning_modal;
 pub mod auth_state;
-mod auth_view_body;
 pub mod auth_view_modal;
-mod auth_view_shared_helpers;
 pub mod credentials;
-mod login_error_modal;
 mod login_failure_notification;
 pub mod login_slide;
 pub mod needs_sso_link_view;
@@ -75,8 +71,6 @@ pub const fn is_slim_fork() -> bool {
 
 pub fn init(app: &mut AppContext) {
     auth_view_modal::init(app);
-    auth_view_body::init(app);
-    auth_override_warning_body::init(app);
     login_slide::init(app);
     paste_auth_token_modal::init(app);
 }

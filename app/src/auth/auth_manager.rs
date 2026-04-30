@@ -31,6 +31,7 @@ pub enum AuthManagerEvent {
     #[allow(dead_code)]
     CreateAnonymousUserFailed,
     /// The user chose to skip login entirely (no Firebase user created).
+    #[allow(dead_code)]
     SkippedLogin,
     /// The user now needs to reauthenticate. If the user needs to reauth, an `AuthFailed`
     /// event might be triggered instead, but there are some code paths where we don't
@@ -124,6 +125,7 @@ impl AuthManager {
     ) {
     }
 
+    #[allow(dead_code)]
     pub fn resume_interrupted_auth_payload(
         &mut self,
         _auth_payload: AuthRedirectPayload,
@@ -202,6 +204,7 @@ impl AuthManager {
 
     /// Slim fork: anonymous user creation is dead — there is no Warp
     /// account to anonymously stand in for.
+    #[allow(dead_code)]
     pub fn create_anonymous_user(
         &self,
         _referral_code: Option<String>,
@@ -244,6 +247,7 @@ impl AuthManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn copy_anonymous_user_linking_url_to_clipboard(&self, _ctx: &mut ModelContext<Self>) {}
 
     /// Generates a unique state parameter for the authentication flow.
@@ -280,6 +284,7 @@ impl AuthManager {
         String::new()
     }
 
+    #[allow(dead_code)]
     pub fn link_sso_url(&mut self, _email: &str) -> String {
         String::new()
     }
