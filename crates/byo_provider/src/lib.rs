@@ -206,11 +206,9 @@ struct AnthropicWireMessage<'a> {
 /// <https://docs.anthropic.com/en/api/messages-streaming#event-types>.
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(dead_code)]
 enum AnthropicSseEvent {
-    MessageStart {
-        #[allow(dead_code)]
-        message: AnthropicMessageMeta,
-    },
+    MessageStart { message: AnthropicMessageMeta },
     ContentBlockDelta { delta: AnthropicDelta },
     MessageDelta { delta: AnthropicMessageStopMeta },
     MessageStop,

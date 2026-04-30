@@ -156,7 +156,6 @@ const SHARED_BLOCK_TITLE_GENERATION_DESCRIPTION: &str =
     "Let AI generate a title for your shared block based on the command and output.";
 const GIT_OPERATIONS_AUTOGEN_DESCRIPTION: &str =
     "Let AI generate commit messages and pull request titles and descriptions.";
-const WISPR_FLOW_URL: &str = "https://wisprflow.ai/";
 
 pub fn init_actions_from_parent_view<T: Action + Clone>(
     app: &mut AppContext,
@@ -5132,115 +5131,7 @@ impl SettingsWidget for AIFactWidget {
     }
 }
 
-#[derive(Default)]
-struct VoiceWidget {
-    voice_input_toggle: SwitchStateHandle,
-    wispr_highlight_index: HighlightedHyperlink,
-}
-
-impl VoiceWidget {
-    fn render_voice_section(
-        &self,
-        view: &AISettingsPageView,
-        appearance: &Appearance,
-        app: &warpui::AppContext,
-    ) -> Box<dyn warpui::Element> {
-        let ai_settings = AISettings::as_ref(app);
-        let is_toggleable = ai_settings.is_any_ai_enabled(app);
-        let mut column = Flex::column().with_child(render_ai_setting_toggle::<VoiceInputEnabled>(
-            "Voice Input",
-            AISettingsPageAction::ToggleVoiceInput,
-            *ai_settings.voice_input_enabled_internal,
-            is_toggleable,
-            self.voice_input_toggle.clone(),
-            &view.local_only_icon_tooltip_states,
-            app,
-        ));
-
-        let voice_input_description_text_fragments = vec![
-                FormattedTextFragment::plain_text("Voice input allows you to control Warp by speaking directly to your terminal (powered by "),
-                FormattedTextFragment::hyperlink("Wispr Flow", WISPR_FLOW_URL),
-                FormattedTextFragment::plain_text(")."),
-            ];
-
-        let voice_input_description = FormattedTextElement::new(
-            FormattedText::new([FormattedTextLine::Line(
-                voice_input_description_text_fragments,
-            )]),
-            appearance.ui_font_size(),
-            appearance.ui_font_family(),
-            appearance.ui_font_family(),
-            styles::description_font_color(is_toggleable, app).into(),
-            self.wispr_highlight_index.clone(),
-        )
-        .with_hyperlink_font_color(appearance.theme().accent().into_solid())
-        .register_default_click_handlers(|url, ctx, _| {
-            ctx.dispatch_typed_action(AISettingsPageAction::HyperlinkClick(url));
-        });
-
-        column.add_child(
-            Container::new(voice_input_description.finish())
-                .with_margin_top(styles::DESCRIPTION_NEGATIVE_MARGIN_OFFSET)
-                .with_margin_bottom(styles::DESCRIPTION_MARGIN_BOTTOM)
-                .with_margin_right(styles::TOGGLE_WIDTH_MARGIN)
-                .finish(),
-        );
-
-        if ai_settings.is_voice_input_enabled(app) {
-            column.add_child(render_dropdown_item(
-                appearance,
-                "Key for Activating Voice Input",
-                Some("Press and hold to activate."),
-                None,
-                LocalOnlyIconState::for_setting(
-                    VoiceInputToggleKey::storage_key(),
-                    VoiceInputToggleKey::sync_to_cloud(),
-                    &mut view.local_only_icon_tooltip_states.borrow_mut(),
-                    app,
-                ),
-                None,
-                &view.voice_input_toggle_key_dropdown,
-            ));
-        }
-
-        column.finish()
-    }
-}
-
-impl SettingsWidget for VoiceWidget {
-    type View = AISettingsPageView;
-
-    fn search_terms(&self) -> &str {
-        "voice agent oz ai a.i. speech input natural language talk english"
-    }
-
-    fn should_render(&self, _app: &AppContext) -> bool {
-        false
-    }
-
-    fn render(
-        &self,
-        view: &Self::View,
-        appearance: &Appearance,
-        app: &AppContext,
-    ) -> Box<dyn Element> {
-        let ai_settings = AISettings::as_ref(app);
-        let is_any_ai_enabled = ai_settings.is_any_ai_enabled(app);
-        Flex::column()
-            .with_child(render_separator(appearance))
-            .with_child(
-                build_sub_header(
-                    appearance,
-                    "Voice",
-                    Some(styles::header_font_color(is_any_ai_enabled, app)),
-                )
-                .with_padding_bottom(HEADER_PADDING)
-                .finish(),
-            )
-            .with_child(self.render_voice_section(view, appearance, app))
-            .finish()
-    }
-}
+// Slim fork: VoiceWidget (and Wispr Flow integration) removed.
 #[derive(Default)]
 struct OtherAIWidget {
     show_oz_updates_in_zero_state_toggle: SwitchStateHandle,

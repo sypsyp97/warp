@@ -16,6 +16,11 @@
 //! All platform-specific logic (`linux.rs`, `mac.rs`, `windows.rs`), the
 //! changelog fetcher, and the channel-versions fetcher have been deleted.
 
+// The whole module is intentionally a stub; many of its types and fields
+// are still part of the public surface that the rest of the crate calls
+// into, but never observed in the slim fork. Silence the noise.
+#![allow(dead_code)]
+
 use std::sync::Arc;
 
 use anyhow::Result;

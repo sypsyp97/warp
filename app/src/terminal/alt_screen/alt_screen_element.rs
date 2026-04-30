@@ -88,6 +88,8 @@ pub struct AltScreenElement {
     cli_subagent_view: Option<Box<dyn Element>>,
 
     /// Voice input toggle key code for CLI agent footer integration.
+    /// Slim fork: voice is gone; keep the field so constructors compile.
+    #[allow(dead_code)]
     voice_input_toggle_key_code: Option<KeyCode>,
 }
 

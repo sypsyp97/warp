@@ -251,33 +251,6 @@ impl AIApiError {
         }
     }
 
-    /// Format a stream error into a human-readable error message. This will read the response
-    /// body if there is one.
-    async fn from_stream_error(stream_type: &'static str, err: reqwest_eventsource::Error) -> Self {
-        match err {
-            reqwest_eventsource::Error::InvalidStatusCode(
-                http::StatusCode::TOO_MANY_REQUESTS,
-                ref res,
-            ) => Self::error_for_429(res.headers()),
-            reqwest_eventsource::Error::InvalidStatusCode(status, res) => Self::ErrorStatus(
-                status,
-                res.text()
-                    .await
-                    .unwrap_or_else(|e| format!("(no response body: {e:#})")),
-            ),
-            reqwest_eventsource::Error::Transport(err) => Self::from_transport_error(err),
-            err => AIApiError::Stream {
-                stream_type,
-                // On WASM, `reqwest_eventsource::Error` doesn't implement `Into<anyhow::Error>` or
-                // `Send` because it may contain a `wasm_bindgen` JS value.
-                #[cfg(target_family = "wasm")]
-                source: anyhow!("{err:#?}"),
-                #[cfg(not(target_family = "wasm"))]
-                source: anyhow!(err),
-            },
-        }
-    }
-
     /// Returns whether or not the error can be retried.
     pub fn is_retryable(&self) -> bool {
         // Don't retry client errors, except for timeouts and quota limits.

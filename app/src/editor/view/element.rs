@@ -217,7 +217,11 @@ pub struct EditorElement {
     local_selection_data: LocalDrawableSelectionData,
     remote_selections_data: HashMap<ReplicaId, RemoteDrawableSelectionData>,
 
+    // Slim fork: voice input is gone but the field is preserved so that
+    // every constructor call site keeps compiling without surgery.
+    #[allow(dead_code)]
     voice_input_cursor_icon: Option<Box<dyn Element>>,
+    #[allow(dead_code)]
     voice_input_toggle_key_code: Option<KeyCode>,
 }
 
