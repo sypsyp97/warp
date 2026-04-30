@@ -65,6 +65,7 @@ pub(super) const HEADER_FONT_SIZE: f32 = 23.;
 pub const SUBHEADER_FONT_SIZE: f32 = 16.;
 const ALTERNATING_LIST_CLOSE_BUTTON_DIAMETER: f32 = 20.0;
 const ALTERNATING_LIST_ITEM_PADDING: f32 = 8.0;
+#[allow(dead_code)]
 const GREY_TEXT_OPACITY: u8 = 60;
 const MIN_PAGE_WIDTH: f32 = 520.;
 const MAX_PAGE_WIDTH: f32 = 800.;
@@ -208,6 +209,7 @@ pub enum PaneEventWrapper {
     Close,
 }
 
+#[allow(dead_code)]
 pub fn render_customer_type_badge(appearance: &Appearance, text: String) -> Box<dyn Element> {
     Container::new(
         Text::new_inline(text, appearance.ui_font_family(), appearance.ui_font_size())

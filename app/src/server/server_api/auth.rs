@@ -121,6 +121,7 @@ pub struct FetchUserResult {
 pub trait AuthClient: 'static + Send + Sync {
     /// Creates an anonymous user, who is allowed to use Warp but may lack the ability
     /// to interact with particular features.
+    #[allow(dead_code)]
     async fn create_anonymous_user(
         &self,
         referral_code: Option<String>,

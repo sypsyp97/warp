@@ -1,10 +1,9 @@
+use crate::app_state::get_app_state;
 use crate::auth;
 use crate::network::NetworkStatus;
 use crate::persistence::ModelEvent;
-use crate::server::server_api::auth::AuthClient;
 use crate::terminal::alt_screen_reporting::AltScreenReporting;
 use crate::terminal::general_settings::GeneralSettings;
-use crate::{app_state::get_app_state, server::server_api::ServerApiProvider};
 use ::settings::ToggleableSetting;
 use warp_core::execution_mode::AppExecutionMode;
 
@@ -15,7 +14,6 @@ use crate::undo_close::UndoCloseStack;
 use crate::workspace::{Workspace, WorkspaceAction};
 use crate::GlobalResourceHandlesProvider;
 use std::path::PathBuf;
-use warp_graphql::mutations::create_anonymous_user::AnonymousUserType;
 use warpui::windowing::WindowManager;
 use warpui::{AppContext, SingletonEntity, TypedActionView};
 
@@ -157,16 +155,9 @@ fn toggle_debug_network_status(_: &(), ctx: &mut AppContext) {
     });
 }
 
-fn create_anonymous_user(_: &(), ctx: &mut AppContext) {
-    log::info!("Creating anonymous user");
-    let anonymous_user_type = AnonymousUserType::NativeClientAnonymousUser;
-    let server_api = ServerApiProvider::handle(ctx).read(ctx, |provider, _ctx| provider.get());
-    let result =
-        warpui::r#async::block_on(server_api.create_anonymous_user(None, anonymous_user_type));
-    match result {
-        Ok(user) => log::info!("Successfully created anonymous user {user:?}"),
-        Err(err) => log::error!("Failed to create anonymous user: {err:?}"),
-    }
+fn create_anonymous_user(_: &(), _ctx: &mut AppContext) {
+    // Slim fork: no Warp account, no anonymous user creation.
+    log::info!("workspace:debug_create_anonymous_user is a no-op in the slim fork");
 }
 
 /// Reopens the last closed item (window or tab).
