@@ -7,7 +7,7 @@ use warpui::{Entity, ModelContext, SingletonEntity};
 use super::auth_state::AuthState;
 use super::auth_view_modal::AuthViewVariant;
 use super::AuthStateProvider;
-use crate::server::server_api::auth::{MintCustomTokenError, UserAuthenticationError};
+use crate::server::server_api::auth::UserAuthenticationError;
 use crate::{send_telemetry_from_ctx, TelemetryEvent};
 use user_persistence::PersistedUser;
 
@@ -19,9 +19,6 @@ pub enum AuthManagerEvent {
     /// Failed to authenticate a user, due to a particular `UserAuthenticationError`.
     #[allow(dead_code)]
     AuthFailed(UserAuthenticationError),
-    /// Failed to create an anonymous user.
-    #[allow(dead_code)]
-    CreateAnonymousUserFailed,
     /// The user chose to skip login entirely (no Firebase user created).
     #[allow(dead_code)]
     SkippedLogin,
@@ -29,24 +26,6 @@ pub enum AuthManagerEvent {
     /// event might be triggered instead, but there are some code paths where we don't
     /// refresh the entire user, only their token, which is when this event might be emitted.
     NeedsReauth,
-    /// The user is anonymous and has attempted to access a login-gated feature or link.
-    #[allow(dead_code)]
-    AttemptedLoginGatedFeature {
-        auth_view_variant: AuthViewVariant,
-    },
-    /// Failed to mint a new custom token for an anonymous user.
-    #[allow(dead_code)]
-    MintCustomTokenFailed(MintCustomTokenError),
-    /// Received a device authorization code as part of the device auth flow.
-    #[allow(dead_code)]
-    ReceivedDeviceAuthorizationCode {
-        #[cfg_attr(target_family = "wasm", allow(unused))]
-        verification_url: String,
-        #[cfg_attr(target_family = "wasm", allow(unused))]
-        verification_url_complete: Option<String>,
-        #[cfg_attr(target_family = "wasm", allow(unused))]
-        user_code: String,
-    },
 }
 
 pub type LoginGatedFeature = &'static str;

@@ -166,13 +166,3 @@ impl ErrorExt for UserAuthenticationError {
 }
 register_error!(UserAuthenticationError);
 
-#[derive(Error, Debug)]
-/// Error type when minting a new custom token for an anonymous user
-#[allow(dead_code)]
-pub enum MintCustomTokenError {
-    #[error("Received a user facing error: {0}")]
-    UserFacingError(String),
-    #[error("Failed to create new custom token with unknown error")]
-    Unknown,
-}
-

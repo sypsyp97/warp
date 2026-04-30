@@ -9571,9 +9571,6 @@ impl Workspace {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            AuthManagerEvent::AttemptedLoginGatedFeature { .. } => {
-                // Slim fork: the require-login modal has been removed; nothing to show.
-            }
             AuthManagerEvent::AuthComplete => {
                 // Only show the telemetry banner if the user is an existing user. The new user flow
                 // for this is handled in the onboarding flow.
