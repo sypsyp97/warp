@@ -103,6 +103,7 @@ pub struct SyncedUserSettings {
 }
 
 /// Results of an attempt to fetch the current user.
+#[allow(dead_code)]
 pub struct FetchUserResult {
     pub user: User,
     /// The credentials used to authenticate this user.
@@ -134,6 +135,7 @@ pub trait AuthClient: 'static + Send + Sync {
 
     /// Fetches data required to construct the [`User`] object. This includes the user's metadata
     /// and authentication tokens.
+    #[allow(dead_code)]
     async fn fetch_user(
         &self,
         token: LoginToken,
@@ -153,6 +155,7 @@ pub trait AuthClient: 'static + Send + Sync {
     ) -> Result<String, MintCustomTokenError>;
 
     /// Queries warp-server for a set of the currently logged-in user's fields.
+    #[allow(dead_code)]
     async fn fetch_user_properties<'a>(&self, auth_token: Option<&'a str>)
         -> Result<GqlUserOutput>;
 
@@ -675,6 +678,7 @@ impl AuthClient for ServerApi {
 }
 
 /// Exchange a long-lived token for fresh [`Credentials`].
+#[allow(dead_code)]
 async fn exchange_credentials(
     client: Arc<http_client::Client>,
     token: LoginToken,
@@ -769,6 +773,7 @@ pub type OAuth2Client = oauth2::basic::BasicClient<
 >;
 
 /// Intermediate type produced by converting a [`GqlUserOutput`] from the server.
+#[allow(dead_code)]
 struct UserProperties {
     user: User,
     server_experiments: Vec<ServerExperiment>,

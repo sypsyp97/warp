@@ -400,6 +400,7 @@ pub(super) fn remove(sender: SyncSender<ModelEvent>) {
         .context("Error requesting database deletion"));
 }
 
+#[allow(dead_code)]
 pub(super) fn reconstruct(sender: SyncSender<ModelEvent>) {
     report_if_error!(sender
         .send(ModelEvent::ReconstructAndResume)

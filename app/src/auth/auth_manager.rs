@@ -1,12 +1,9 @@
 pub(super) mod user_persistence;
 
-use std::result::Result as StdResult;
 use std::sync::Arc;
 
-use settings::Setting as _;
 use uuid::Uuid;
-use warp_core::features::FeatureFlag;
-use warpui::{Entity, ModelContext, SingletonEntity, UpdateModel};
+use warpui::{Entity, ModelContext, SingletonEntity};
 
 use super::auth_state::{AuthState, PersistAction};
 use super::auth_view_modal::{AuthRedirectPayload, AuthViewVariant};
@@ -14,36 +11,18 @@ use super::credentials::Credentials;
 use super::user::User;
 use super::AuthStateProvider;
 use super::UserUid;
-use crate::ai::llms::LLMPreferences;
-use crate::ai::persisted_workspace::PersistedWorkspace;
-use crate::ai::AIRequestUsageModel;
-use crate::autoupdate::AutoupdateState;
-use crate::persistence::ModelEvent;
-use crate::server::cloud_objects::update_manager::UpdateManager;
-use crate::server::server_api::auth::FetchUserResult;
-use crate::server::server_api::ServerApiProvider;
-use crate::server::{
-    server_api::{
-        auth::{AuthClient, MintCustomTokenError, UserAuthenticationError},
-        ServerApi,
-    },
-    telemetry::AnonymousUserSignupEntrypoint,
+use crate::server::server_api::{
+    auth::{AuthClient, MintCustomTokenError, UserAuthenticationError},
+    ServerApi,
 };
-use crate::settings::cloud_preferences_syncer::CloudPreferencesSyncer;
-use crate::settings::initializer::SettingsInitializer;
-use crate::settings::PrivacySettings;
-use crate::terminal::general_settings::GeneralSettings;
-use crate::terminal::shared_session::manager::Manager as SharedSessionManager;
-use crate::workspaces::team_tester::TeamTesterStatus;
-use crate::{
-    persistence, report_if_error, send_telemetry_from_ctx, GlobalResourceHandlesProvider,
-    TelemetryEvent,
-};
+use crate::server::telemetry::AnonymousUserSignupEntrypoint;
+use crate::{send_telemetry_from_ctx, TelemetryEvent};
 use user_persistence::PersistedUser;
 
 #[derive(Debug)]
 pub enum AuthManagerEvent {
     /// Successfully authenticated a user with no errors.
+    #[allow(dead_code)]
     AuthComplete,
     /// Failed to authenticate a user, due to a particular `UserAuthenticationError`.
     #[allow(dead_code)]
@@ -87,9 +66,16 @@ type URLConstructorCallback = Box<dyn FnOnce(Option<&str>) -> String>;
 
 /// AuthManager is a singleton model which manages the currently logged-in user's state.
 /// If you need to access the state, use `AuthStateProvider`.
+///
+/// Slim fork: most callsites have been stubbed to no-ops, so the cached
+/// `server_api` / `auth_client` handles are never invoked. They remain on
+/// the struct so the public `new` signature stays stable for downstream
+/// crates that construct it.
 pub struct AuthManager {
     auth_state: Arc<AuthState>,
+    #[allow(dead_code)]
     server_api: Arc<ServerApi>,
+    #[allow(dead_code)]
     auth_client: Arc<dyn AuthClient>,
     /// A generated state token that the web app must provide back to the client.
     pending_auth_state: Option<String>,
@@ -145,38 +131,10 @@ impl AuthManager {
     ) {
     }
 
-    #[cfg(target_family = "wasm")]
-    pub fn initialize_user_from_session_cookie(&self, ctx: &mut ModelContext<Self>) {
-        let auth_client = self.auth_client.clone();
-        let _ = ctx.spawn(
-            async move {
-                auth_client
-                    .fetch_user(LoginToken::SessionCookie, false)
-                    .await
-            },
-            Self::on_user_fetched,
-        );
-    }
-
-    /// Refreshes the user's auth state using their existing credentials.
-    pub fn refresh_user(&self, ctx: &mut ModelContext<Self>) {
-        let Some(credentials) = self.auth_state.credentials() else {
-            log::warn!("Attempted to refresh user without credentials");
-            return;
-        };
-
-        let Some(token) = credentials.login_token() else {
-            // Slim fork: with no Warp account this is the normal state.
-            log::debug!("No login token; user refresh skipped");
-            return;
-        };
-
-        let auth_client = self.auth_client.clone();
-        let _ = ctx.spawn(
-            async move { auth_client.fetch_user(token, true).await },
-            Self::on_user_fetched,
-        );
-    }
+    /// Slim fork: there are no Warp credentials to refresh. The CLI
+    /// admin path still calls this on startup; we keep it as a quiet
+    /// no-op so the call site doesn't need to know.
+    pub fn refresh_user(&self, _ctx: &mut ModelContext<Self>) {}
 
     /// Slim fork: device auth flow is dead. CLI `warp login` sub-commands
     /// remain wired so the binary still type-checks, but they never
@@ -184,194 +142,9 @@ impl AuthManager {
     #[cfg_attr(target_family = "wasm", allow(dead_code))]
     pub fn authorize_device(&self, _ctx: &mut ModelContext<Self>) {}
 
-    /// Callback for handling a successful fetch of a user from warp-server and Firebase.
-    /// This does the heavy-lifting of setting up all components of the application that depend
-    /// on a user's authenticated state, and emits events to subscribers that let them know
-    /// an auth event has occurred.
-    fn on_user_fetched(
-        &mut self,
-        fetch_user_result: StdResult<FetchUserResult, UserAuthenticationError>,
-        ctx: &mut ModelContext<Self>,
-    ) {
-        match fetch_user_result {
-            Ok(fetch_user_result) => {
-                let FetchUserResult {
-                    user,
-                    credentials,
-                    server_experiments,
-                    from_refresh,
-                    llms,
-                } = fetch_user_result;
-
-                self.set_and_persist(Some(user.clone()), Some(credentials), ctx);
-
-                self.set_needs_reauth(false, ctx);
-
-                ServerApiProvider::handle(ctx).update(ctx, |provider, ctx| {
-                    provider.handle_experiments_fetched(server_experiments, ctx);
-                });
-
-                SettingsInitializer::handle(ctx).update(ctx, |initializer, ctx| {
-                    initializer.handle_user_fetched(self.auth_state.clone(), ctx);
-                });
-
-                // Reset the initial-load condition so that any cloud preference
-                // sync waits for the *new* user's cloud objects rather than
-                // resolving immediately against stale data from a prior session.
-                // Only do this for non-refresh fetches (login/signup), not for
-                // token refreshes where the user identity hasn't changed.
-                if !from_refresh {
-                    UpdateManager::handle(ctx).update(ctx, |manager, _| {
-                        manager.reset_initial_load();
-                    });
-                }
-
-                // Now that we have a user, start polling for team and cloud object information.
-                // The polling loop's first tick fires immediately, so there is no need for a
-                // separate out-of-band refresh here.
-                TeamTesterStatus::handle(ctx).update(ctx, |model, ctx| {
-                    model.initiate_data_pollers(false, ctx);
-                });
-
-                CloudPreferencesSyncer::handle(ctx).update(ctx, |model, ctx| {
-                    model.handle_user_fetched(self.auth_state.clone(), ctx)
-                });
-
-                AIRequestUsageModel::handle(ctx).update(ctx, |usage_model, ctx| {
-                    usage_model.refresh_request_usage_async(ctx);
-                });
-
-                LLMPreferences::handle(ctx).update(ctx, |prefs, ctx| {
-                    prefs.update_feature_model_choices(Ok(llms), ctx);
-                });
-
-                PersistedWorkspace::handle(ctx).update(ctx, |index_manager_updater, ctx| {
-                    index_manager_updater.on_user_changed(ctx);
-                });
-
-                if !user.is_user_anonymous() {
-                    GeneralSettings::handle(ctx).update(ctx, |settings, ctx| {
-                        report_if_error!(settings
-                            .did_non_anonymous_user_log_in
-                            .set_value(true, ctx));
-                    });
-                }
-
-                // Force refresh for shared sessions if user may have changed.
-                if !from_refresh {
-                    SharedSessionManager::handle(ctx).update(ctx, |manager, ctx| {
-                        manager.stop_all_shared_sessions(ctx);
-                        manager.rejoin_all_shared_sessions(ctx);
-                    });
-                }
-
-                let global_resource_handles =
-                    GlobalResourceHandlesProvider::as_ref(ctx).get().clone();
-
-                // As part of Logout v0:
-                // Reconstruct the database if it was removed.
-                // Do nothing if the database was not removed.
-                persistence::reconstruct(&global_resource_handles.model_event_sender);
-                if let Some(model_event_sender) = &global_resource_handles.model_event_sender {
-                    if let Err(e) =
-                        model_event_sender.send(ModelEvent::UpsertCurrentUserInformation {
-                            user_information: PersistedCurrentUserInformation {
-                                email: self.auth_state.user_email().unwrap_or_default(),
-                            },
-                        })
-                    {
-                        log::error!("Error persisting user information to database: {e:?}");
-                    };
-                }
-
-                // Fetch the user's privacy settings from the server if any or update the server settings.
-                let privacy_settings_handle = PrivacySettings::handle(ctx);
-                let privacy_settings_snapshot =
-                    privacy_settings_handle.as_ref(ctx).get_snapshot(ctx);
-                ctx.update_model(&privacy_settings_handle, |privacy_settings, ctx| {
-                    privacy_settings.fetch_or_update_settings(ctx);
-                });
-
-                // Now that the user is logged in, do the daily version check.
-                if FeatureFlag::Autoupdate.is_enabled() {
-                    AutoupdateState::handle(ctx).update(ctx, |autoupdate_state, ctx| {
-                        autoupdate_state.maybe_daily_check_for_update(ctx);
-                    });
-                }
-
-                let server_api = self.server_api.clone();
-                let user_id = self.auth_state.user_id().unwrap_or_default();
-                let anonymous_id = self.auth_state.anonymous_id();
-                let _ = ctx.spawn(
-                    // Synchronously add the identify and login event to the telemetry event queue and
-                    // then flush the queue to ensure the events get to Rudderstack. We need to do this
-                    // one-off because the login event happens only once for the user and we don't want
-                    // to drop the event if the user quits the app before the next flush of the queue.
-                    // TODO(alokedesai): Investigate a more robust way of handling events
-                    // that don't get flushed to Rudderstack outside of this event specifically.
-                    async move {
-                        warpui::telemetry::record_identify_user_event(
-                            user_id.as_string(),
-                            anonymous_id.clone(),
-                            warpui::time::get_current_time(),
-                        );
-                        warpui::telemetry::record_event(
-                            Some(user_id.as_string()),
-                            anonymous_id,
-                            TelemetryEvent::Login.name().into(),
-                            TelemetryEvent::Login.payload(),
-                            TelemetryEvent::Login.contains_ugc(),
-                            warpui::time::get_current_time(),
-                        );
-
-                        // Note that this snapshot might get overwritten to disabled after the server fetch.
-                        // However, it is still fine to flush to Rudderstack here as the login event is low-risk
-                        // and it is better to err on the side of over-reporting than under-reporting.
-                        if let Err(e) = server_api
-                            .flush_telemetry_events(privacy_settings_snapshot)
-                            .await
-                        {
-                            log::info!("Failed to flush events from Telemetry queue: {e}");
-                        }
-                        server_api.notify_login().await;
-                    },
-                    |_, _, _| {},
-                );
-
-                // Once the user is authenticated, attempt to report the sandbox that Warp is running in, if any.
-                ctx.spawn(
-                    async { warp_isolation_platform::detect() },
-                    |_, platform, ctx| {
-                        if let Some(platform) = platform {
-                            send_telemetry_from_ctx!(
-                                TelemetryEvent::DetectedIsolationPlatform { platform },
-                                ctx
-                            );
-                        }
-                    },
-                );
-
-                ctx.emit(AuthManagerEvent::AuthComplete);
-            }
-            Err(error) => {
-                match error {
-                    UserAuthenticationError::DeniedAccessToken(_) => {
-                        self.set_needs_reauth(true, ctx);
-                    }
-                    UserAuthenticationError::UserAccountDisabled(_) => {}
-                    UserAuthenticationError::Unexpected(_) => {}
-                    UserAuthenticationError::InvalidStateParameter => {}
-                    UserAuthenticationError::MissingStateParameter => {}
-                }
-
-                ctx.emit(AuthManagerEvent::AuthFailed(error));
-            }
-        }
-    }
-
     /// Sets the user and credentials in auth state and persists to secure storage.
-    /// Persistence depends on the credential type - currently, we only persist
-    /// state if authenticated via a Firebase token.
+    /// Persistence depends on the credential type — currently, only Firebase.
+    /// Slim fork keeps this private helper for `log_out` to clear state.
     fn set_and_persist(
         &self,
         user: Option<User>,

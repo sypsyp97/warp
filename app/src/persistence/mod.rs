@@ -97,6 +97,7 @@ pub fn remove(sender: &Option<SyncSender<ModelEvent>>) {
 
 // Reconstruct sqlite database as part of Logout v0.
 #[cfg_attr(not(feature = "local_fs"), allow(unused_variables))]
+#[allow(dead_code)]
 pub fn reconstruct(sender: &Option<SyncSender<ModelEvent>>) {
     cfg_if::cfg_if! {
         if #[cfg(feature = "local_fs")] {

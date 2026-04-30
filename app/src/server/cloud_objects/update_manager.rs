@@ -1233,6 +1233,7 @@ impl UpdateManager {
     /// the next load finishes. Call this when the user identity changes (e.g.
     /// after signup/login) to prevent stale cloud data from a previous session
     /// being used.
+    #[allow(dead_code)]
     pub fn reset_initial_load(&self) {
         log::info!("Resetting initial_load_complete condition for fresh cloud object fetch");
         self.has_initial_load.reset();

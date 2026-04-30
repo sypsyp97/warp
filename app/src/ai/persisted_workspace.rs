@@ -618,6 +618,7 @@ impl PersistedWorkspace {
         Self::maybe_enable_codebase_indexing(ctx);
     }
 
+    #[allow(dead_code)]
     pub fn on_user_changed(&self, ctx: &mut ModelContext<Self>) {
         Self::maybe_enable_codebase_indexing(ctx);
     }
