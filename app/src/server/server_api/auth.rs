@@ -1,9 +1,7 @@
-use std::{result::Result as StdResult, sync::Arc};
-
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use cynic::{MutationBuilder, QueryBuilder};
-use firebase::{FetchAccessTokenResponse, FirebaseError};
+use firebase::FirebaseError;
 use instant::Duration;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
@@ -14,41 +12,16 @@ use warp_graphql::mutations::update_user_settings::{
     UpdateUserSettingsVariables,
 };
 use warp_graphql::queries::get_user_settings::{GetUserSettings, GetUserSettingsVariables};
-use warpui::r#async::BoxFuture;
 
 use crate::server::graphql::get_user_facing_error_message;
 use crate::server::server_api::register_error;
 use crate::settings::PrivacySettingsSnapshot;
 use crate::{
-    auth::credentials::{AuthToken, Credentials, FirebaseToken, LoginToken, RefreshToken},
-    auth::user::FirebaseAuthTokens,
-    channel::ChannelState,
-    server::{
-        datetime_ext::DateTimeExt as _, graphql::get_request_context,
-        server_api::ServerApiEvent,
-    },
+    auth::credentials::{AuthToken, Credentials},
+    server::graphql::get_request_context,
 };
 
 use super::ServerApi;
-
-/// Error messages returned from the Firebase REST API when attempting to convert a refresh token
-/// into an access token that indicate the user's token is in an errored state.
-/// These are "soft" errors because the user likely just needs to log in again.
-/// See https://firebase.google.com/docs/reference/rest/auth#section-refresh-token.
-static FETCH_ACCESS_TOKEN_SOFT_ERROR_MESSAGES: &[&str] = &[
-    "TOKEN_EXPIRED",
-    "INVALID_REFRESH_TOKEN",
-    "MISSING_REFRESH_TOKEN",
-];
-
-/// Error messages returned from the Firebase REST API when attempting to convert a refresh token
-/// into an access token that indicate the user's account is in an errored state.
-/// These are "hard" errors because the user likely can no longer sign in with their account,
-/// for example if it were disabled or deleted.
-/// See https://firebase.google.com/docs/reference/rest/auth#section-refresh-token.
-static FETCH_ACCESS_TOKEN_HARD_ERROR_MESSAGES: &[&str] = &["USER_DISABLED", "USER_NOT_FOUND"];
-
-const FETCH_ACCESS_TOKEN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Header key for the ambient workload token attached to multi-agent requests.
 pub const AMBIENT_WORKLOAD_TOKEN_HEADER: &str = "X-Warp-Ambient-Workload-Token";
@@ -104,40 +77,21 @@ pub trait AuthClient: 'static + Send + Sync {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 impl AuthClient for ServerApi {
     async fn get_or_refresh_access_token(&self) -> Result<AuthToken> {
-        // Slim fork: there is no Warp account. We never expect this to
-        // be hit on the hot path because every call site is gated on
-        // `is_logged_in()`, but if it does fire we fail quietly with a
-        // distinct message that consumers can match on if they want to
-        // demote the log level.
+        // Slim fork: every authenticated request is gated on `is_logged_in()`,
+        // and the only credentials we ever construct in production are
+        // `Credentials::ApiKey`. The Firebase / SessionCookie variants still
+        // exist on the enum so tests and persistence types compile, but
+        // hitting them here means something tried to make a Warp cloud call
+        // we can't service.
         let Some(credentials) = self.auth_state.credentials() else {
             bail!("slim fork has no Warp account; authenticated request skipped");
         };
 
         match credentials {
             Credentials::ApiKey { key, .. } => Ok(AuthToken::ApiKey(key)),
-            Credentials::Firebase(auth_tokens) => {
-                let expiration_time = auth_tokens.expiration_time;
-
-                // Generate a new ID token if the token has expired or will expire in the
-                // next five minutes. This matches the behavior of the Firebase Auth SDK.
-                if chrono::DateTime::now() + chrono::Duration::minutes(5) >= expiration_time {
-                    let refresh_token = auth_tokens.refresh_token.clone();
-                    let firebase_token = FirebaseToken::Refresh(RefreshToken::new(refresh_token));
-
-                    let result = fetch_auth_tokens(self.client.clone(), firebase_token).await;
-
-                    if let Err(UserAuthenticationError::DeniedAccessToken(_)) = result {
-                        let _ = self.event_sender.send(ServerApiEvent::NeedsReauth).await;
-                    }
-                    let new_firebase_token_info = result?;
-                    self.auth_state
-                        .update_firebase_tokens(new_firebase_token_info.clone());
-                    return Ok(AuthToken::Firebase(new_firebase_token_info.id_token));
-                }
-
-                Ok(AuthToken::Firebase(auth_tokens.id_token))
+            Credentials::Firebase(_) | Credentials::SessionCookie => {
+                bail!("slim fork has no Firebase/SessionCookie auth path")
             }
-            Credentials::SessionCookie => Ok(AuthToken::NoAuth),
             #[cfg(any(test, feature = "integration_tests", feature = "skip_login"))]
             Credentials::Test => Ok(AuthToken::NoAuth),
         }
@@ -313,92 +267,6 @@ impl AuthClient for ServerApi {
     }
 }
 
-/// Exchange a long-lived token for fresh [`Credentials`].
-#[allow(dead_code)]
-async fn exchange_credentials(
-    client: Arc<http_client::Client>,
-    token: LoginToken,
-) -> StdResult<Credentials, UserAuthenticationError> {
-    match token {
-        LoginToken::Firebase(firebase_token) => {
-            let tokens = fetch_auth_tokens(client, firebase_token).await?;
-            Ok(Credentials::Firebase(tokens))
-        }
-        LoginToken::ApiKey(key) => Ok(Credentials::ApiKey {
-            key,
-            owner_type: None,
-        }),
-        LoginToken::SessionCookie => Ok(Credentials::SessionCookie),
-    }
-}
-
-fn fetch_auth_tokens(
-    client: Arc<http_client::Client>,
-    token: FirebaseToken,
-) -> BoxFuture<'static, StdResult<FirebaseAuthTokens, UserAuthenticationError>> {
-    Box::pin(async move {
-        let firebase_api_key = ChannelState::firebase_api_key();
-        let url = token.access_token_url(&firebase_api_key);
-        let request_body = token.access_token_request_body();
-        let proxy_url = token.proxy_url(&ChannelState::server_root_url(), &firebase_api_key);
-        let response = match client
-            .post(&url)
-            .form(&request_body)
-            .timeout(FETCH_ACCESS_TOKEN_TIMEOUT)
-            .send()
-            .await
-        {
-            Ok(response) => match response.error_for_status_ref() {
-                Ok(_) => Ok(response),
-                Err(error) => {
-                    log::warn!(
-                        "Request to firebase to fetch access token completed, but was unsuccessful: {error:?}"
-                    );
-
-                    fetch_access_token_via_proxy(client, &request_body, proxy_url).await
-                }
-            },
-            Err(error) => {
-                log::warn!("Failed to make response to firebase to fetch access token: {error:?}");
-
-                fetch_access_token_via_proxy(client, &request_body, proxy_url).await
-            }
-        }?;
-
-        let response = response
-            .json::<FetchAccessTokenResponse>()
-            .await
-            .map_err(anyhow::Error::from)?;
-        match response {
-            FetchAccessTokenResponse::Success {
-                id_token,
-                expires_in,
-                refresh_token,
-            } => Ok(FirebaseAuthTokens::from_response(
-                id_token,
-                refresh_token,
-                expires_in,
-            )?),
-            FetchAccessTokenResponse::Error { error } => Err(error.into()),
-        }
-    })
-}
-
-fn fetch_access_token_via_proxy<'a>(
-    client: Arc<http_client::Client>,
-    request_body: &'a [(&'a str, &'a str)],
-    proxy_url: String,
-) -> BoxFuture<'a, Result<http_client::Response>> {
-    Box::pin(async move {
-        client
-            .post(&proxy_url)
-            .form(request_body)
-            .send()
-            .await
-            .map_err(anyhow::Error::from)
-    })
-}
-
 /// The [`oauth2::Client`] type, specialized to the endpoints that we require.
 pub type OAuth2Client = oauth2::basic::BasicClient<
     oauth2::EndpointNotSet, // HasAuthUrl
@@ -418,6 +286,7 @@ pub enum UserAuthenticationError {
     DeniedAccessToken(FirebaseError),
     /// The user's account is invalid. This could occur if the user requested their account
     /// be deleted per their GDPR/CCPA rights.
+    #[allow(dead_code)]
     #[error("Firebase returned a user error when fetching an ID token")]
     UserAccountDisabled(FirebaseError),
     #[allow(dead_code)]
@@ -460,21 +329,6 @@ impl ErrorExt for UserAuthenticationError {
 }
 register_error!(UserAuthenticationError);
 
-impl From<FirebaseError> for UserAuthenticationError {
-    fn from(error: FirebaseError) -> Self {
-        if FETCH_ACCESS_TOKEN_SOFT_ERROR_MESSAGES.contains(&error.message.as_str()) {
-            UserAuthenticationError::DeniedAccessToken(error)
-        } else if FETCH_ACCESS_TOKEN_HARD_ERROR_MESSAGES.contains(&error.message.as_str()) {
-            UserAuthenticationError::UserAccountDisabled(error)
-        } else {
-            UserAuthenticationError::Unexpected(
-                anyhow::Error::from(error)
-                    .context("Failed to exchange refresh token with access token."),
-            )
-        }
-    }
-}
-
 #[derive(Error, Debug)]
 /// Error type when minting a new custom token for an anonymous user
 #[allow(dead_code)]
@@ -485,6 +339,3 @@ pub enum MintCustomTokenError {
     Unknown,
 }
 
-#[cfg(test)]
-#[path = "auth_test.rs"]
-mod tests;

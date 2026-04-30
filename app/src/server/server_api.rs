@@ -310,7 +310,9 @@ pub enum ServerApiEvent {
     /// We made a staging API call that was blocked, which may indicate a firewall misconfiguration.
     StagingAccessBlocked,
     /// The user's access token was invalid, so they need to reauth before they can make
-    /// requests to warp-server.
+    /// requests to warp-server. Slim fork: never emitted now that the Firebase
+    /// refresh path is gone, but kept so `match` arms in `server_api.rs` stay exhaustive.
+    #[allow(dead_code)]
     NeedsReauth,
     /// The user's account has been disabled.
     UserAccountDisabled,

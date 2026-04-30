@@ -3,22 +3,18 @@ use std::sync::{
     Arc,
 };
 
-use anyhow::anyhow;
 use chrono::{DateTime, Duration, Utc};
 use parking_lot::RwLock;
 use uuid::Uuid;
 use warp_graphql::object_permissions::OwnerType;
 use warpui::{AppContext, Entity, SingletonEntity};
 
-use crate::{
-    cloud_object::{GenericStringObjectFormat, JsonObjectType, ObjectType},
-    report_error,
-};
+use crate::cloud_object::{GenericStringObjectFormat, JsonObjectType, ObjectType};
 
 use super::{
     anonymous_id::get_or_create_anonymous_id,
     credentials::Credentials,
-    user::{AnonymousUserType, FirebaseAuthTokens, PersonalObjectLimits, PrincipalType, User},
+    user::{AnonymousUserType, PersonalObjectLimits, PrincipalType, User},
     UserUid,
 };
 
@@ -90,19 +86,6 @@ impl AuthState {
     /// Sets the credentials. Should only be called within the auth module.
     pub(super) fn set_credentials(&self, credentials: Option<Credentials>) {
         *self.credentials.write() = credentials;
-    }
-
-    /// Updates the Firebase auth tokens within the current credentials.
-    /// Reports an error if the current credentials are not Firebase.
-    pub(crate) fn update_firebase_tokens(&self, new_auth_tokens: FirebaseAuthTokens) {
-        let mut write_lock = self.credentials.write();
-        if let Some(Credentials::Firebase(tokens)) = write_lock.as_mut() {
-            *tokens = new_auth_tokens;
-        } else {
-            report_error!(anyhow!(
-                "Tried to update Firebase tokens without Firebase credentials"
-            ));
-        }
     }
 
     /// Determines whether the user should be considered as logged in.
