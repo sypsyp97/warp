@@ -1,25 +1,14 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use async_trait::async_trait;
-use cynic::{MutationBuilder, QueryBuilder};
 use firebase::FirebaseError;
 use instant::Duration;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 use thiserror::Error;
 use warp_core::errors::{AnyhowErrorExt, ErrorExt};
-use warp_graphql::mutations::update_user_settings::{
-    UpdateUserSettings, UpdateUserSettingsInput, UpdateUserSettingsResult,
-    UpdateUserSettingsVariables,
-};
-use warp_graphql::queries::get_user_settings::{GetUserSettings, GetUserSettingsVariables};
 
-use crate::server::graphql::get_user_facing_error_message;
+use crate::auth::credentials::{AuthToken, Credentials};
 use crate::server::server_api::register_error;
-use crate::settings::PrivacySettingsSnapshot;
-use crate::{
-    auth::credentials::{AuthToken, Credentials},
-    server::graphql::get_request_context,
-};
 
 use super::ServerApi;
 
@@ -32,14 +21,6 @@ pub const CLOUD_AGENT_ID_HEADER: &str = "X-Warp-Cloud-Agent-ID";
 /// Duration for which the ambient workload token is valid (3 hours).
 const AMBIENT_WORKLOAD_TOKEN_DURATION: Duration = Duration::from_secs(3 * 60 * 60);
 
-/// User settings that are currently 'synced' (e.g. stored server-side) on a per-user basis.
-#[derive(Copy, Clone, Debug, Default)]
-pub struct SyncedUserSettings {
-    pub is_cloud_conversation_storage_enabled: bool,
-    pub is_crash_reporting_enabled: bool,
-    pub is_telemetry_enabled: bool,
-}
-
 #[cfg_attr(test, automock)]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
@@ -49,23 +30,6 @@ pub trait AuthClient: 'static + Send + Sync {
     /// Returns an auth mode that may not require an Authorization header (e.g. session cookies or
     /// test credentials).
     async fn get_or_refresh_access_token(&self) -> Result<AuthToken>;
-
-    /// Upon success, returns an `Option` containing the user's settings retrieved from the server,
-    /// if any. The user may not have server-side settings if they onboarded prior to the launch
-    /// of telemetry opt-out, have not logged in since the launch, and have never changed defaults
-    /// for any of the settings in [`SyncedUserSettings`]. If the fetched settings object exists
-    /// but is missing required fields, or if the request itself failed, returns an error.
-    async fn get_user_settings(&self) -> Result<Option<SyncedUserSettings>>;
-
-    async fn set_is_telemetry_enabled(&self, value: bool) -> Result<()>;
-
-    async fn set_is_crash_reporting_enabled(&self, value: bool) -> Result<()>;
-
-    async fn set_is_cloud_conversation_storage_enabled(&self, value: bool) -> Result<()>;
-
-    /// Sends a request to update the user's settings on the server with values contained in the
-    /// given `settings_snapshot`.
-    async fn update_user_settings(&self, settings_snapshot: PrivacySettingsSnapshot) -> Result<()>;
 
     /// Returns a cached ambient workload token, or issues a new one if not present or expired.
     ///
@@ -94,133 +58,6 @@ impl AuthClient for ServerApi {
             }
             #[cfg(any(test, feature = "integration_tests", feature = "skip_login"))]
             Credentials::Test => Ok(AuthToken::NoAuth),
-        }
-    }
-
-    async fn get_user_settings(&self) -> Result<Option<SyncedUserSettings>> {
-        let variables = GetUserSettingsVariables {
-            request_context: get_request_context(),
-        };
-        let operation = GetUserSettings::build(variables);
-        let response = self.send_graphql_request(operation, None).await?;
-
-        match response.user {
-            warp_graphql::queries::get_user_settings::UserResult::UserOutput(user_output) => {
-                match user_output.user.settings {
-                    Some(user_settings) => Ok(Some(SyncedUserSettings {
-                        is_cloud_conversation_storage_enabled: user_settings
-                            .is_cloud_conversation_storage_enabled,
-                        is_crash_reporting_enabled: user_settings.is_crash_reporting_enabled,
-                        is_telemetry_enabled: user_settings.is_telemetry_enabled,
-                    })),
-                    None => Ok(None),
-                }
-            }
-            warp_graphql::queries::get_user_settings::UserResult::Unknown => {
-                Err(anyhow!("Unable to fetch user settings"))
-            }
-        }
-    }
-
-    async fn set_is_telemetry_enabled(&self, value: bool) -> Result<()> {
-        let variables = UpdateUserSettingsVariables {
-            input: UpdateUserSettingsInput {
-                telemetry_enabled: Some(value),
-                ..Default::default()
-            },
-            request_context: get_request_context(),
-        };
-
-        let operation = UpdateUserSettings::build(variables);
-        let result = self
-            .send_graphql_request(operation, None)
-            .await?
-            .update_user_settings;
-
-        match result {
-            UpdateUserSettingsResult::UpdateUserSettingsOutput(_) => Ok(()),
-            UpdateUserSettingsResult::UserFacingError(user_facing_error) => {
-                Err(anyhow!(get_user_facing_error_message(user_facing_error)))
-            }
-            UpdateUserSettingsResult::Unknown => Err(anyhow!("failed to set telemetry enabled")),
-        }
-    }
-
-    async fn set_is_crash_reporting_enabled(&self, value: bool) -> Result<()> {
-        let variables = UpdateUserSettingsVariables {
-            input: UpdateUserSettingsInput {
-                crash_reporting_enabled: Some(value),
-                ..Default::default()
-            },
-            request_context: get_request_context(),
-        };
-
-        let operation = UpdateUserSettings::build(variables);
-        let result = self
-            .send_graphql_request(operation, None)
-            .await?
-            .update_user_settings;
-
-        match result {
-            UpdateUserSettingsResult::UpdateUserSettingsOutput(_) => Ok(()),
-            UpdateUserSettingsResult::UserFacingError(user_facing_error) => {
-                Err(anyhow!(get_user_facing_error_message(user_facing_error)))
-            }
-            UpdateUserSettingsResult::Unknown => {
-                Err(anyhow!("failed to set crash reporting enabled"))
-            }
-        }
-    }
-
-    async fn set_is_cloud_conversation_storage_enabled(&self, value: bool) -> Result<()> {
-        let variables = UpdateUserSettingsVariables {
-            input: UpdateUserSettingsInput {
-                cloud_conversation_storage_enabled: Some(value),
-                ..Default::default()
-            },
-            request_context: get_request_context(),
-        };
-
-        let operation = UpdateUserSettings::build(variables);
-        let result = self
-            .send_graphql_request(operation, None)
-            .await?
-            .update_user_settings;
-
-        match result {
-            UpdateUserSettingsResult::UpdateUserSettingsOutput(_) => Ok(()),
-            UpdateUserSettingsResult::UserFacingError(user_facing_error) => {
-                Err(anyhow!(get_user_facing_error_message(user_facing_error)))
-            }
-            UpdateUserSettingsResult::Unknown => {
-                Err(anyhow!("failed to set cloud conversation storage enabled"))
-            }
-        }
-    }
-
-    async fn update_user_settings(&self, settings_snapshot: PrivacySettingsSnapshot) -> Result<()> {
-        let variables = UpdateUserSettingsVariables {
-            input: UpdateUserSettingsInput {
-                telemetry_enabled: Some(settings_snapshot.is_telemetry_enabled()),
-                crash_reporting_enabled: Some(settings_snapshot.is_crash_reporting_enabled()),
-                cloud_conversation_storage_enabled: settings_snapshot
-                    .cloud_conversation_storage_enabled(),
-            },
-            request_context: get_request_context(),
-        };
-
-        let operation = UpdateUserSettings::build(variables);
-        let result = self
-            .send_graphql_request(operation, None)
-            .await?
-            .update_user_settings;
-
-        match result {
-            UpdateUserSettingsResult::UpdateUserSettingsOutput(_) => Ok(()),
-            UpdateUserSettingsResult::UserFacingError(user_facing_error) => {
-                Err(anyhow!(get_user_facing_error_message(user_facing_error)))
-            }
-            UpdateUserSettingsResult::Unknown => Err(anyhow!("failed to update user settings")),
         }
     }
 
