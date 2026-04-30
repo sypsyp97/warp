@@ -10,4 +10,3 @@ rust-embed.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
-command.workspace = true
