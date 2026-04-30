@@ -328,7 +328,10 @@ pub struct ServerApi {
     // TODO(jeff): Make `TelemetryApi` another type of client, and move it off `ServerApi`.
     telemetry_api: TelemetryApi,
     last_server_time: Arc<Mutex<Option<ServerTime>>>,
-    // We technically use OAuth2 for headless device authentication.
+    // We technically use OAuth2 for headless device authentication. Slim
+    // fork keeps the field for compile compatibility with the trait
+    // impls below, but it's never actually invoked.
+    #[allow(dead_code)]
     oauth_client: self::auth::OAuth2Client,
     /// Cached ambient workload token for requests from ambient agents.
     ambient_workload_token: Arc<Mutex<Option<warp_isolation_platform::WorkloadToken>>>,

@@ -55,6 +55,24 @@ use crate::workspaces::update_manager::TeamUpdateManager;
 use crate::{persistence, GlobalResourceHandlesProvider};
 use crate::{report_if_error, send_telemetry_sync_from_app_ctx};
 
+/// Canonical predicate for "this build never has a Warp cloud account."
+///
+/// In the slim fork the answer is permanently `true`. Use this instead of
+/// `cfg!(feature = "skip_login")` or `!auth_state.is_logged_in()` whenever
+/// the *intent* is "we don't have a Warp account, so skip the cloud branch":
+/// it makes the call site self-explanatory and decouples the gate from the
+/// `skip_login` feature flag (which still exists upstream for tests).
+///
+/// Use the existing `AuthState::is_logged_in()` only when the call site is
+/// genuinely asking "do we hold credentials right now?" — for example, the
+/// CLI device-auth flow which still mutates credentials in-process even
+/// though slim never persists them.
+#[inline]
+#[allow(dead_code)]
+pub const fn is_slim_fork() -> bool {
+    true
+}
+
 pub fn init(app: &mut AppContext) {
     auth_view_modal::init(app);
     auth_view_body::init(app);

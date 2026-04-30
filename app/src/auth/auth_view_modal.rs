@@ -99,6 +99,7 @@ const AUTH_URL_STATE_QUERY_PARAM: &str = "state";
 
 // `AuthRedirectPayload` is returned from the incoming redirect url.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AuthRedirectPayload {
     pub refresh_token: RefreshToken,
     pub user_uid: Option<UserUid>,
@@ -150,6 +151,7 @@ const MODAL_WIDTH: f32 = 352.;
 pub enum AuthViewVariant {
     Initial,
     RequireLoginCloseable,
+    #[allow(dead_code)]
     HitDriveObjectLimitCloseable,
     ShareRequirementCloseable,
 }

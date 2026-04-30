@@ -142,9 +142,11 @@ pub trait AuthClient: 'static + Send + Sync {
 
     /// Creates and fetches an new custom token for the current user from Firebase.
     /// This only works for anonymous users, and will surface an error if the user is not anonymous.
+    #[allow(dead_code)]
     async fn fetch_new_custom_token(&self) -> Result<MintCustomTokenResult>;
 
     /// Handles the response from [`Self::fetch_new_custom_token`], returning the newly-minted custom token.
+    #[allow(dead_code)]
     fn on_custom_token_fetched(
         &self,
         response: Result<MintCustomTokenResult>,
@@ -182,14 +184,17 @@ pub trait AuthClient: 'static + Send + Sync {
     /// given `settings_snapshot`.
     async fn update_user_settings(&self, settings_snapshot: PrivacySettingsSnapshot) -> Result<()>;
 
+    #[allow(dead_code)]
     async fn set_user_is_onboarded(&self) -> Result<bool>;
 
     /// Requests a device authorization code from the server. This is only used for headless CLI/SDK authentication.
+    #[allow(dead_code)]
     async fn request_device_code(
         &self,
     ) -> StdResult<oauth2::StandardDeviceAuthorizationResponse, UserAuthenticationError>;
 
     /// Wait for the request to be approved or rejected and exchange it for a short-lived custom access token.
+    #[allow(dead_code)]
     async fn exchange_device_access_token(
         &self,
         details: &oauth2::StandardDeviceAuthorizationResponse,
@@ -839,8 +844,10 @@ pub enum UserAuthenticationError {
     /// be deleted per their GDPR/CCPA rights.
     #[error("Firebase returned a user error when fetching an ID token")]
     UserAccountDisabled(FirebaseError),
+    #[allow(dead_code)]
     #[error("Invalid state parameter in auth redirect")]
     InvalidStateParameter,
+    #[allow(dead_code)]
     #[error("Missing state parameter in auth redirect")]
     MissingStateParameter,
     #[error("unexpected error occurred when fetching an ID token: {0:#}")]
@@ -894,6 +901,7 @@ impl From<FirebaseError> for UserAuthenticationError {
 
 #[derive(Error, Debug)]
 /// Error type when creating anonymous users
+#[allow(dead_code)]
 pub enum AnonymousUserCreationError {
     #[error("The network request to create the anonymous user failed")]
     CreationFailed,
@@ -911,6 +919,7 @@ pub enum AnonymousUserCreationError {
 
 #[derive(Error, Debug)]
 /// Error type when minting a new custom token for an anonymous user
+#[allow(dead_code)]
 pub enum MintCustomTokenError {
     #[error("Received a user facing error: {0}")]
     UserFacingError(String),
