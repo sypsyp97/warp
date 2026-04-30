@@ -207,7 +207,10 @@ struct AnthropicWireMessage<'a> {
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AnthropicSseEvent {
-    MessageStart { message: AnthropicMessageMeta },
+    MessageStart {
+        #[allow(dead_code)]
+        message: AnthropicMessageMeta,
+    },
     ContentBlockDelta { delta: AnthropicDelta },
     MessageDelta { delta: AnthropicMessageStopMeta },
     MessageStop,

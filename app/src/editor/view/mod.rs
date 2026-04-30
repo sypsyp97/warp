@@ -8083,7 +8083,7 @@ impl EditorView {
                 }
             };
 
-        if !should_show_voice && !should_show_image && !should_show_at_context_menu {
+        if !should_show_image && !should_show_at_context_menu {
             return None;
         }
 

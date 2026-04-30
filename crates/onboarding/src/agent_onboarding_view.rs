@@ -4,8 +4,8 @@ use crate::model::{
 };
 use crate::slides::{
     AgentSlide, AgentSlideEvent, CustomizeUISlide, FreeUserNoAiSlide, IntentionSlide, IntroSlide,
-    IntroSlideEvent, OnboardingModelInfo, OnboardingSlide, ProjectSlide, ThemePickerSlide,
-    ThemePickerSlideEvent, ThirdPartySlide,
+    OnboardingModelInfo, OnboardingSlide, ProjectSlide, ThemePickerSlide, ThemePickerSlideEvent,
+    ThirdPartySlide,
 };
 use crate::telemetry::OnboardingEvent;
 use ai::LLMId;
@@ -155,11 +155,6 @@ impl AgentOnboardingView {
             let onboarding_state = onboarding_state.clone();
             ctx.add_typed_action_view(move |_| IntroSlide::new(onboarding_state))
         };
-
-        // Slim fork: IntroSlideEvent has no variants; keep the
-        // subscription as a no-op for now so the wiring is preserved
-        // if we re-add events later.
-        ctx.subscribe_to_view(&intro_slide, |_me, _view, _event: &IntroSlideEvent, _ctx| {});
 
         let theme_picker_slide = {
             let themes = theme_picker_themes.clone();

@@ -177,6 +177,7 @@ fn extract_user_query(request: &api::Request) -> Option<String> {
             None
         }
         // Deprecated direct UserQuery still in the wire format.
+        #[allow(deprecated)]
         Type::UserQuery(uq) => Some(uq.query.clone()),
         // Anything else (passive suggestions, code review, etc.) is
         // out of scope for plain BYO chat.  Caller falls through to

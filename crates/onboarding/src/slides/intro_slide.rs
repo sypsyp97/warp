@@ -14,7 +14,8 @@ use warpui::{
     },
     keymap::Keystroke,
     text_layout::TextAlignment,
-    AppContext, Element, Entity, ModelHandle, TypedActionView, View, ViewContext,
+    AppContext, Element, Entity, ModelHandle, SingletonEntity as _, TypedActionView, View,
+    ViewContext,
 };
 
 /// Slim-fork variant: no Warp login. The intro slide just sends the
@@ -112,7 +113,7 @@ impl IntroSlide {
         .with_line_height_ratio(1.0)
         .finish();
 
-        let hint_color = internal_colors::fg_overlay_4(theme);
+        let hint_color: ColorU = internal_colors::fg_overlay_4(theme).into();
         let setup_hint = FormattedTextElement::from_str(
             "After setup, open Settings → AI → BYO LLM Provider to enter your \
              Anthropic or OpenAI-compatible API key. \

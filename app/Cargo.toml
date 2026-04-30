@@ -663,7 +663,7 @@ inline_slash_commands = ["agent_view"]
 # profile report when app memory usage exceeds a 10GB threshold.
 #
 # Enabled on WarpDev by default.
-heap_usage_tracking = ["jemalloc_pprof", "crash_reporting"]
+heap_usage_tracking = ["jemalloc_pprof"]
 image_as_context = []
 in_band_generators_ssh = []
 jemalloc = ["dep:tikv-jemallocator", "ai/jemalloc"]

@@ -12,7 +12,6 @@ use crate::workspace::view::{
     TOGGLE_COMMAND_PALETTE_KEYBINDING_NAME, TOGGLE_RIGHT_PANEL_BINDING_NAME,
 };
 use crate::workspace::WorkspaceAction;
-use crate::workspaces::user_workspaces::UserWorkspaces;
 use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 use markdown_parser::FormattedTextFragment;
 use std::path::Path;
