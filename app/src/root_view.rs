@@ -6,9 +6,8 @@ use crate::auth::auth_override_warning_modal::AuthOverrideWarningModalVariant;
 use crate::auth::auth_state::AuthState;
 use crate::auth::auth_view_modal::AuthRedirectPayload;
 use crate::auth::login_slide::{LoginSlideEvent, LoginSlideSource, LoginSlideView};
-use crate::auth::needs_sso_link_view::NeedsSsoLinkView;
 use crate::auth::paste_auth_token_modal::{PasteAuthTokenModalEvent, PasteAuthTokenModalView};
-use crate::auth::{AuthStateProvider, LoginFailureReason};
+use crate::auth::AuthStateProvider;
 use crate::autoupdate::{AutoupdateState, AutoupdateStateEvent};
 use crate::cloud_object::model::persistence::CloudModel;
 use crate::cloud_object::{GenericStringObjectFormat, JsonObjectType, ObjectType};
@@ -1654,7 +1653,6 @@ enum AuthOnboardingState {
     /// The client is importing auth state from the host application.
     #[cfg(target_family = "wasm")]
     WebImport(AuthOnboardingTarget),
-    NeedsSsoLink(AuthOnboardingTarget),
     Onboarding {
         onboarding_view: ViewHandle<AgentOnboardingView>,
         target: AuthOnboardingTarget,
@@ -1673,7 +1671,6 @@ pub struct RootView {
     server_time: Option<Arc<ServerTime>>,
     auth_view: ViewHandle<AuthView>,
     auth_override_view: ViewHandle<AuthOverrideWarningModal>,
-    needs_sso_link_view: ViewHandle<NeedsSsoLinkView>,
     #[cfg(target_family = "wasm")]
     web_handoff_view: ViewHandle<WebHandoffView>,
     pub server_api: Arc<ServerApi>,
@@ -1766,8 +1763,6 @@ impl RootView {
             }
         };
 
-        let needs_sso_link_view = ctx.add_typed_action_view(|_| NeedsSsoLinkView::new());
-
         #[cfg(target_family = "wasm")]
         let web_handoff_view = {
             let view = ctx.add_view(WebHandoffView::new);
@@ -1780,7 +1775,6 @@ impl RootView {
             server_time: None,
             auth_view,
             auth_override_view,
-            needs_sso_link_view,
             #[cfg(target_family = "wasm")]
             web_handoff_view,
             server_api: server_api.clone(),
@@ -1911,17 +1905,6 @@ impl RootView {
     fn log_out(&mut self, _: &(), ctx: &mut ViewContext<Self>) -> bool {
         self.auth_onboarding_state.log_out(ctx);
         ctx.focus_self();
-        ctx.notify();
-        true
-    }
-
-    fn show_needs_sso_link_view(&mut self, email: String, ctx: &mut ViewContext<Self>) -> bool {
-        self.needs_sso_link_view.update(ctx, |view, _| {
-            view.set_email(email);
-        });
-
-        self.auth_onboarding_state.show_needs_sso_link_view();
-        ctx.emit(RootViewEvent::AuthOnboardingStateChanged);
         ctx.notify();
         true
     }
@@ -2448,12 +2431,8 @@ impl RootView {
                 });
             }
             Err(error) => {
+                // Slim fork: there is no auth-failure notification UI to update; just log.
                 log::error!("Unable to parse AuthResult from url: {error}");
-                self.auth_view.update(ctx, |view, ctx| {
-                    view.last_login_failure_reason =
-                        Some(LoginFailureReason::InvalidRedirectUrl { was_pasted: false });
-                    ctx.notify()
-                });
             }
         }
         true
@@ -2900,14 +2879,7 @@ impl RootView {
                 // entrypoint (i.e. we're already in the `Terminal` state).
                 Self::sync_local_onboarding_to_server(&auth_state, ctx);
 
-                // If the user needs SSO after auth is complete, no matter what their current state is,
-                // we need to block their access to the rest of the app.
-                if auth_state.needs_sso_link().unwrap_or(false) {
-                    self.show_needs_sso_link_view(
-                        auth_state.user_email().unwrap_or_default().clone(),
-                        ctx,
-                    );
-                } else if let AuthOnboardingState::Auth(_)
+                if let AuthOnboardingState::Auth(_)
                 | AuthOnboardingState::ConfirmIncomingAuth(_) =
                     &self.auth_onboarding_state
                 {
@@ -2921,13 +2893,6 @@ impl RootView {
                     self.auth_onboarding_state
                         .complete_auth_and_create_workspace(ctx);
                     self.start_pending_tutorial(ctx);
-                } else if let AuthOnboardingState::NeedsSsoLink { .. } = &self.auth_onboarding_state
-                {
-                    // We should be able to access their SSO state; if not, default to true,
-                    // since we should err on the side of them _not_ being able to use Warp.
-                    if auth_state.needs_sso_link() == Some(false) {
-                        self.auth_onboarding_state.complete_sso_link(ctx);
-                    }
                 }
 
                 #[cfg(target_family = "wasm")]
@@ -3107,9 +3072,6 @@ impl RootView {
             AuthOnboardingState::WebImport(_) => {
                 ctx.focus(&self.web_handoff_view);
             }
-            AuthOnboardingState::NeedsSsoLink { .. } => {
-                ctx.focus(&self.needs_sso_link_view);
-            }
             AuthOnboardingState::Onboarding {
                 onboarding_view, ..
             } => {
@@ -3243,9 +3205,6 @@ impl View for RootView {
             }
             #[cfg(target_family = "wasm")]
             AuthOnboardingState::WebImport(_) => ChildView::new(&self.web_handoff_view).finish(),
-            AuthOnboardingState::NeedsSsoLink { .. } => {
-                ChildView::new(&self.needs_sso_link_view).finish()
-            }
             AuthOnboardingState::Onboarding {
                 onboarding_view, ..
             } => ChildView::new(onboarding_view).finish(),
@@ -3404,13 +3363,6 @@ impl AuthOnboardingState {
         };
     }
 
-    fn complete_sso_link(&mut self, ctx: &mut ViewContext<RootView>) {
-        if let AuthOnboardingState::NeedsSsoLink(needs_sso_link_mode) = self {
-            *self = AuthOnboardingState::Terminal(needs_sso_link_mode.to_workspace(ctx));
-            ctx.emit(RootViewEvent::AuthOnboardingStateChanged);
-        }
-    }
-
     #[cfg(target_family = "wasm")]
     fn show_web_handoff_view(&mut self) {
         match self {
@@ -3419,9 +3371,6 @@ impl AuthOnboardingState {
                     AuthOnboardingState::WebImport(AuthOnboardingTarget::Workspace(args.clone()));
             }
             AuthOnboardingState::WebImport(_) => (),
-            AuthOnboardingState::NeedsSsoLink(target) => {
-                *self = AuthOnboardingState::WebImport(target.clone())
-            }
             AuthOnboardingState::Onboarding { .. } | AuthOnboardingState::LoginSlide { .. } => {
                 // For onboarding/login slide, we don't have a workspace yet, so we can't convert to web import
                 // This case shouldn't normally occur
@@ -3440,33 +3389,6 @@ impl AuthOnboardingState {
         }
     }
 
-    fn show_needs_sso_link_view(&mut self) {
-        match self {
-            AuthOnboardingState::Auth(workspace_args)
-            | AuthOnboardingState::ConfirmIncomingAuth(workspace_args) => {
-                *self = AuthOnboardingState::NeedsSsoLink(AuthOnboardingTarget::Workspace(
-                    workspace_args.clone(),
-                ))
-            }
-            #[cfg(target_family = "wasm")]
-            AuthOnboardingState::WebImport(_) => {
-                // This case _shouldn't_ be possible - if SSO were required, it should be handled
-                // in the host app.
-                log::error!("SSO link required after web user import");
-            }
-            AuthOnboardingState::NeedsSsoLink { .. } => (),
-            AuthOnboardingState::Onboarding { .. } | AuthOnboardingState::LoginSlide { .. } => {
-                // For onboarding/login slide, we don't have a workspace yet, so we can't convert to SSO link
-                // This case shouldn't normally occur
-            }
-            AuthOnboardingState::Terminal(terminal_view_handle) => {
-                *self = AuthOnboardingState::NeedsSsoLink(AuthOnboardingTarget::Terminal(
-                    terminal_view_handle.clone(),
-                ))
-            }
-        }
-    }
-
     fn log_out(&mut self, ctx: &mut ViewContext<RootView>) {
         match self {
             AuthOnboardingState::Auth(_) => (),
@@ -3479,13 +3401,6 @@ impl AuthOnboardingState {
                 // TODO(ben): Eventually, we could support logout here by logging out of the JS
                 // Firebase client.
             }
-            AuthOnboardingState::NeedsSsoLink(needs_sso_link_mode) => match needs_sso_link_mode {
-                AuthOnboardingTarget::Workspace(args) => {
-                    *self = AuthOnboardingState::Auth(args.clone());
-                    ctx.emit(RootViewEvent::AuthOnboardingStateChanged);
-                }
-                AuthOnboardingTarget::Terminal(_) => {}
-            },
             AuthOnboardingState::Onboarding { .. } | AuthOnboardingState::LoginSlide { .. } => {
                 // No workspace to clean up for onboarding/login slide state
             }

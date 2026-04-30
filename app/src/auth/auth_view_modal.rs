@@ -16,7 +16,6 @@
 //!
 //! This stub keeps the public surface intact and renders nothing.
 
-use crate::auth::login_failure_notification::LoginFailureReason;
 use crate::auth::UserUid;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
@@ -101,20 +100,12 @@ pub enum AuthViewVariant {
 }
 
 pub struct AuthView {
-    /// Kept public so other modules can still write into it (they did this
-    /// to surface a failure reason in the login notification banner). In
-    /// slim no banner ever renders; the field is harmless and the writes
-    /// stay valid.
-    pub last_login_failure_reason: Option<LoginFailureReason>,
     _variant: AuthViewVariant,
 }
 
 impl AuthView {
     pub fn new(variant: AuthViewVariant, _ctx: &mut ViewContext<Self>) -> Self {
-        Self {
-            last_login_failure_reason: None,
-            _variant: variant,
-        }
+        Self { _variant: variant }
     }
 
     pub fn set_variant(&mut self, _ctx: &mut ViewContext<Self>, variant: AuthViewVariant) {

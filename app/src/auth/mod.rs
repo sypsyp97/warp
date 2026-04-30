@@ -4,9 +4,7 @@ pub mod auth_override_warning_modal;
 pub mod auth_state;
 pub mod auth_view_modal;
 pub mod credentials;
-mod login_failure_notification;
 pub mod login_slide;
-pub mod needs_sso_link_view;
 pub mod paste_auth_token_modal;
 pub mod user;
 pub mod user_uid;
@@ -27,7 +25,6 @@ use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 pub use auth_manager::AuthManager;
 pub use auth_state::AuthStateProvider;
 use itertools::Itertools;
-pub use login_failure_notification::LoginFailureReason;
 pub use user_uid::UserUid;
 use warpui::modals::{AlertDialogWithCallbacks, ModalButton};
 
