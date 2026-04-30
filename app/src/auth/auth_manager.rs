@@ -2,19 +2,12 @@ pub(super) mod user_persistence;
 
 use std::sync::Arc;
 
-use uuid::Uuid;
 use warpui::{Entity, ModelContext, SingletonEntity};
 
-use super::auth_state::{AuthState, PersistAction};
+use super::auth_state::AuthState;
 use super::auth_view_modal::{AuthRedirectPayload, AuthViewVariant};
-use super::credentials::Credentials;
-use super::user::User;
 use super::AuthStateProvider;
-use super::UserUid;
-use crate::server::server_api::{
-    auth::{AuthClient, MintCustomTokenError, UserAuthenticationError},
-    ServerApi,
-};
+use crate::server::server_api::auth::{MintCustomTokenError, UserAuthenticationError};
 use crate::server::telemetry::AnonymousUserSignupEntrypoint;
 use crate::{send_telemetry_from_ctx, TelemetryEvent};
 use user_persistence::PersistedUser;
@@ -68,51 +61,25 @@ type URLConstructorCallback = Box<dyn FnOnce(Option<&str>) -> String>;
 /// AuthManager is a singleton model which manages the currently logged-in user's state.
 /// If you need to access the state, use `AuthStateProvider`.
 ///
-/// Slim fork: most callsites have been stubbed to no-ops, so the cached
-/// `server_api` / `auth_client` handles are never invoked. They remain on
-/// the struct so the public `new` signature stays stable for downstream
-/// crates that construct it.
+/// Slim fork: every method that used to talk to Warp's cloud is a no-op,
+/// so the manager only carries the AuthState handle. The cloud client
+/// references that the upstream version held are gone.
 pub struct AuthManager {
     auth_state: Arc<AuthState>,
-    #[allow(dead_code)]
-    server_api: Arc<ServerApi>,
-    #[allow(dead_code)]
-    auth_client: Arc<dyn AuthClient>,
-    /// A generated state token that the web app must provide back to the client.
-    pending_auth_state: Option<String>,
 }
 
 impl AuthManager {
     /// Creates a new instance of the AuthManager. The auth state must already be initialized through
     /// [`AuthStateProvider`].
-    pub fn new(
-        server_api: Arc<ServerApi>,
-        auth_client: Arc<dyn AuthClient>,
-        ctx: &mut ModelContext<Self>,
-    ) -> Self {
-        let auth_state = AuthStateProvider::as_ref(ctx).get().clone();
-
+    pub fn new(ctx: &mut ModelContext<Self>) -> Self {
         Self {
-            auth_state,
-            server_api,
-            auth_client,
-            pending_auth_state: None,
+            auth_state: AuthStateProvider::as_ref(ctx).get().clone(),
         }
     }
 
     #[cfg(test)]
     pub fn new_for_test(ctx: &mut ModelContext<Self>) -> Self {
-        use crate::server::server_api::ServerApiProvider;
-
-        let server_api = ServerApiProvider::as_ref(ctx).get();
-        let auth_state = AuthStateProvider::as_ref(ctx).get().clone();
-
-        Self {
-            auth_state,
-            server_api: server_api.clone(),
-            auth_client: server_api,
-            pending_auth_state: None,
-        }
+        Self::new(ctx)
     }
 
     /// Slim fork: there is no `warp.dev` redirect to process, so the entire
@@ -144,52 +111,15 @@ impl AuthManager {
     #[cfg_attr(target_family = "wasm", allow(dead_code))]
     pub fn authorize_device(&self, _ctx: &mut ModelContext<Self>) {}
 
-    /// Sets the user and credentials in auth state and persists to secure storage.
-    /// Persistence depends on the credential type — currently, only Firebase.
-    /// Slim fork keeps this private helper for `log_out` to clear state.
-    fn set_and_persist(
-        &self,
-        user: Option<User>,
-        credentials: Option<Credentials>,
-        ctx: &mut ModelContext<Self>,
-    ) {
-        self.auth_state.set_user(user);
-        self.auth_state.set_credentials(credentials);
-        self.persist(ctx);
-    }
-
-    /// Persists (or removes) the current user and credentials to/from secure storage,
-    /// based on the current auth state.
-    fn persist(&self, ctx: &mut ModelContext<Self>) {
-        match self.auth_state.persist_action() {
-            PersistAction::Persist(persisted_user) => {
-                if persisted_user.auth_tokens.refresh_token.is_empty() {
-                    log::warn!("Skipping user persistence due to empty refresh token");
-                    return;
-                }
-                let _ = persisted_user.write_to_secure_storage(ctx).map_err(|err| {
-                    log::warn!("Unable to persist user to secure storage: {err:?}");
-                });
-            }
-            PersistAction::Remove => {
-                let _ = PersistedUser::remove_from_secure_storage(ctx).map_err(|err| {
-                    log::warn!("Unable to clear user from secure storage: {err:?}");
-                });
-            }
-            PersistAction::DoNothing => {}
-        }
-    }
-
     /// Helper function for logging out the user.
     /// NOTE: You probably want to call auth::log_out instead; this only manages the auth state,
     /// it doesn't shut down any other user-dependent parts of the app.
-    /// TODO(jeff): Can we move those pieces in here?
     pub(super) fn log_out(&mut self, ctx: &mut ModelContext<Self>) {
-        // Clear any dangling CSRF token from an auth flow that was started but never
-        // completed before this logout, so it can't be replayed against the next session
-        // in the same process.
-        self.pending_auth_state = None;
-        self.set_and_persist(None, None, ctx);
+        self.auth_state.set_user(None);
+        self.auth_state.set_credentials(None);
+        let _ = PersistedUser::remove_from_secure_storage(ctx).map_err(|err| {
+            log::warn!("Unable to clear user from secure storage: {err:?}");
+        });
     }
 
     /// Sets whether or not this user's Firebase credentials are invalid and thus needs to reauth.
@@ -250,17 +180,6 @@ impl AuthManager {
     #[allow(dead_code)]
     pub fn copy_anonymous_user_linking_url_to_clipboard(&self, _ctx: &mut ModelContext<Self>) {}
 
-    /// Generates a unique state parameter for the authentication flow.
-    /// Slim fork: kept only because tests still exercise the CSRF token
-    /// machinery; production callers no longer fire it (URL builders are
-    /// stubbed and `initialize_user_from_auth_payload` is a no-op).
-    #[allow(dead_code)]
-    fn generate_auth_state(&mut self) -> String {
-        let state = Uuid::new_v4().to_string();
-        self.pending_auth_state = Some(state.clone());
-        state
-    }
-
     // Slim fork: every URL below used to point at warp.dev (signup, login,
     // upgrade, SSO link). With no Warp account they have nowhere to go, so
     // each builder returns an empty string. Callers that still try to
@@ -289,40 +208,10 @@ impl AuthManager {
         String::new()
     }
 
-    /// Validates and consumes the pending auth state token. Returns `true` if the
-    /// provided state matches; in that case the pending state is cleared so the
-    /// CSRF token is single-use. A subsequent call with the same value will fail.
-    #[allow(dead_code)]
-    fn consume_auth_state(&mut self, received_state: &str) -> bool {
-        if self.pending_auth_state.as_deref() == Some(received_state) {
-            self.pending_auth_state = None;
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Returns whether an auth redirect that failed state validation should be
-    /// silently dropped rather than surfaced as an error. This covers the
-    /// "user clicks the browser's 'Take me to Warp' button twice" case: once
-    /// they're fully logged in, a second redirect targeting the same user is
-    /// redundant and should not produce a user-visible error.
-    #[allow(dead_code)]
-    fn should_silently_ignore_stale_redirect(&self, incoming_user_uid: &Option<UserUid>) -> bool {
-        if self.auth_state.is_anonymous_or_logged_out() {
-            return false;
-        }
-        match (self.auth_state.user_id(), incoming_user_uid) {
-            (Some(current_uid), Some(incoming_uid)) => current_uid == *incoming_uid,
-            _ => false,
-        }
-    }
-
     /// Slim fork: only flip the local in-memory flag, no server round-trip.
-    /// Persistence is also a no-op because slim never has Firebase creds.
-    pub fn set_user_onboarded(&self, ctx: &mut ModelContext<Self>) {
+    /// No-op when there's no user (the common case in slim).
+    pub fn set_user_onboarded(&self, _ctx: &mut ModelContext<Self>) {
         self.auth_state.set_is_onboarded(true);
-        self.persist(ctx);
     }
 }
 

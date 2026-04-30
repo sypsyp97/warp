@@ -1011,13 +1011,7 @@ fn initialize_app(
 
     ctx.add_singleton_model(AppTelemetryContextProvider::new_context_provider);
 
-    ctx.add_singleton_model(|ctx| {
-        AuthManager::new(
-            server_api.clone(),
-            server_api_provider.as_ref(ctx).get_auth_client(),
-            ctx,
-        )
-    });
+    ctx.add_singleton_model(AuthManager::new);
 
     ctx.add_singleton_model(|_ctx| GPUState::new());
 

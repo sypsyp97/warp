@@ -17,23 +17,12 @@ use crate::{
 
 use super::{
     anonymous_id::get_or_create_anonymous_id,
-    auth_manager::user_persistence::PersistedUser,
     credentials::Credentials,
     user::{AnonymousUserType, FirebaseAuthTokens, PersonalObjectLimits, PrincipalType, User},
     UserUid,
 };
 
 const ANONYMOUS_USER_NOTIFICATION_BLOCK_TIMER: Duration = Duration::days(7);
-
-/// Describes what persistence action to take based on the current auth state.
-pub(super) enum PersistAction {
-    /// The user has Firebase credentials and should be persisted to secure storage.
-    Persist(Box<PersistedUser>),
-    /// The user has been logged out and should be removed from secure storage.
-    Remove,
-    /// No persistence action is needed (e.g. API key or test credentials).
-    DoNothing,
-}
 
 /// AuthState holds information about the currently-logged in user.
 /// If you need to access AuthState, you can use the AuthStateProvider singleton model.
@@ -84,45 +73,6 @@ impl AuthState {
         // gates a cloud call naturally short-circuits. AI gating uses
         // a separate override in `AISettings::is_any_ai_enabled`.
         Self::new(ctx)
-    }
-
-    /// Determines the appropriate persistence action based on the current auth state.
-    pub(super) fn persist_action(&self) -> PersistAction {
-        let user = self.user.read().clone();
-        let credentials = self.credentials.read().clone();
-
-        match (user, credentials) {
-            (Some(user), Some(Credentials::Firebase(firebase_tokens))) => {
-                let anonymous_user_type = user.anonymous_user_type();
-                let linked_at = user.linked_at();
-                let personal_object_limits = user.personal_object_limits();
-
-                #[allow(deprecated)]
-                let persisted = PersistedUser {
-                    auth_tokens: firebase_tokens,
-                    refresh_token: String::new(),
-                    local_id: user.local_id,
-                    metadata: user.metadata,
-                    is_onboarded: user.is_onboarded,
-                    needs_sso_link: user.needs_sso_link,
-                    anonymous_user_type,
-                    linked_at,
-                    personal_object_limits,
-                    is_on_work_domain: user.is_on_work_domain,
-                };
-                PersistAction::Persist(Box::new(persisted))
-            }
-            // Remove persisted auth state if it is unset in-memory.
-            (None, None) => PersistAction::Remove,
-            // Do not persist if using API keys, session cookies, or test credentials.
-            (Some(_), Some(Credentials::ApiKey { .. })) => PersistAction::DoNothing,
-            (Some(_), Some(Credentials::SessionCookie)) => PersistAction::DoNothing,
-            #[cfg(any(test, feature = "integration_tests", feature = "skip_login"))]
-            (Some(_), Some(Credentials::Test)) => PersistAction::DoNothing,
-            // Credentials without a user, or user without credentials - transient states
-            // during initialization or refresh; no persistence action needed.
-            (None, Some(_)) | (Some(_), None) => PersistAction::DoNothing,
-        }
     }
 
     /// Sets the user. This should only be called by the AuthManager, to ensure
