@@ -11,7 +11,7 @@ use crate::{
         },
         facts::{AIFact, CloudAIFactModel},
     },
-    auth::{auth_manager::AuthManager, AuthStateProvider},
+    auth::AuthStateProvider,
     cloud_object::{
         model::{
             actions::{ObjectAction, ObjectActionHistory, ObjectActionType, ObjectActions},
@@ -3327,9 +3327,6 @@ impl UpdateManager {
                 .is_anonymous_user_past_object_limit(ObjectType::Notebook, count + 1)
                 .unwrap_or_default()
         }) {
-            AuthManager::handle(ctx).update(ctx, |auth_manager: &mut AuthManager, ctx| {
-                auth_manager.anonymous_user_hit_drive_object_limit(ctx);
-            });
             return;
         };
 
@@ -3398,9 +3395,6 @@ impl UpdateManager {
                 .is_anonymous_user_past_object_limit(ObjectType::Workflow, count + 1)
                 .unwrap_or_default()
         }) {
-            AuthManager::handle(ctx).update(ctx, |auth_manager: &mut AuthManager, ctx| {
-                auth_manager.anonymous_user_hit_drive_object_limit(ctx);
-            });
             return;
         };
 
@@ -3467,9 +3461,6 @@ impl UpdateManager {
                 .is_anonymous_user_past_object_limit(env_var_collection_type, count + 1)
                 .unwrap_or_default()
         }) {
-            AuthManager::handle(ctx).update(ctx, |auth_manager: &mut AuthManager, ctx| {
-                auth_manager.anonymous_user_hit_drive_object_limit(ctx);
-            });
             return;
         };
 

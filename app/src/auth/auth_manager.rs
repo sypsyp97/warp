@@ -8,7 +8,6 @@ use super::auth_state::AuthState;
 use super::auth_view_modal::AuthViewVariant;
 use super::AuthStateProvider;
 use crate::server::server_api::auth::{MintCustomTokenError, UserAuthenticationError};
-use crate::server::telemetry::AnonymousUserSignupEntrypoint;
 use crate::{send_telemetry_from_ctx, TelemetryEvent};
 use user_persistence::PersistedUser;
 
@@ -51,8 +50,6 @@ pub enum AuthManagerEvent {
 }
 
 pub type LoginGatedFeature = &'static str;
-
-type URLConstructorCallback = Box<dyn FnOnce(Option<&str>) -> String>;
 
 /// AuthManager is a singleton model which manages the currently logged-in user's state.
 /// If you need to access the state, use `AuthStateProvider`.
@@ -110,16 +107,6 @@ impl AuthManager {
         }
     }
 
-    /// Slim fork: anonymous user creation is dead — there is no Warp
-    /// account to anonymously stand in for.
-    #[allow(dead_code)]
-    pub fn create_anonymous_user(
-        &self,
-        _referral_code: Option<String>,
-        _ctx: &mut ModelContext<Self>,
-    ) {
-    }
-
     /// Slim fork: every "login-gated" feature is permanently denied without
     /// any modal popup, since there is no login flow. Callers continue to
     /// invoke this; nothing happens.
@@ -129,61 +116,6 @@ impl AuthManager {
         _auth_view_variant: AuthViewVariant,
         _ctx: &mut ModelContext<Self>,
     ) {
-    }
-
-    pub fn anonymous_user_hit_drive_object_limit(&self, _ctx: &mut ModelContext<Self>) {}
-
-    pub fn initiate_anonymous_user_linking(
-        &self,
-        _entrypoint: AnonymousUserSignupEntrypoint,
-        _ctx: &mut ModelContext<Self>,
-    ) {
-    }
-
-    /// Slim fork: callers used to optionally pass a custom token to the URL
-    /// they open, but anonymous-user linking is dead now, so we just open the
-    /// constructed URL without a token. Most callers in slim are themselves
-    /// dead UI paths; this is the safe fallback.
-    pub fn open_url_maybe_with_anonymous_token(
-        &self,
-        ctx: &mut ModelContext<Self>,
-        construct_url: URLConstructorCallback,
-    ) {
-        let url: String = construct_url(None);
-        if !url.is_empty() {
-            ctx.open_url(&url);
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn copy_anonymous_user_linking_url_to_clipboard(&self, _ctx: &mut ModelContext<Self>) {}
-
-    // Slim fork: every URL below used to point at warp.dev (signup, login,
-    // upgrade, SSO link). With no Warp account they have nowhere to go, so
-    // each builder returns an empty string. Callers that still try to
-    // `ctx.open_url(&...)` an empty URL get a no-op instead of a request to
-    // the public Warp servers.
-
-    pub fn sign_up_url(&mut self) -> String {
-        String::new()
-    }
-
-    pub fn sign_in_url(&mut self) -> String {
-        String::new()
-    }
-
-    pub fn upgrade_url(&mut self) -> String {
-        String::new()
-    }
-
-    #[allow(dead_code)]
-    pub fn login_options_url(&mut self, _custom_token: &str) -> String {
-        String::new()
-    }
-
-    #[allow(dead_code)]
-    pub fn link_sso_url(&mut self, _email: &str) -> String {
-        String::new()
     }
 
     /// Slim fork: only flip the local in-memory flag, no server round-trip.

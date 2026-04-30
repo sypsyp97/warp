@@ -86,7 +86,6 @@ use std::{collections::HashMap, path::PathBuf};
 use url::Url;
 use warp_core::context_flag::ContextFlag;
 use warp_core::user_preferences::GetUserPreferences as _;
-use warpui::clipboard::ClipboardContent;
 use warpui::keymap::{EditableBinding, FixedBinding};
 use warpui::windowing::WindowManager;
 
@@ -2127,18 +2126,10 @@ impl RootView {
                 ctx.notify();
             }
             AgentOnboardingEvent::UpgradeRequested => {
-                let upgrade_url = AuthManager::handle(ctx)
-                    .update(ctx, |auth_manager, _| auth_manager.upgrade_url());
-                ctx.open_url(&upgrade_url);
+                // Slim fork: there is no Warp upgrade page to open.
             }
             AgentOnboardingEvent::UpgradeCopyUrlRequested => {
-                let upgrade_url = AuthManager::handle(ctx)
-                    .update(ctx, |auth_manager, _| auth_manager.upgrade_url());
-                ctx.clipboard().write(ClipboardContent {
-                    plain_text: upgrade_url.clone(),
-                    paths: Some(vec![upgrade_url]),
-                    ..Default::default()
-                });
+                // Slim fork: there is no Warp upgrade page URL to copy.
             }
             AgentOnboardingEvent::UpgradePasteTokenFromClipboardRequested => {
                 // Slim fork: paste-auth-token modal is gone with the rest of
