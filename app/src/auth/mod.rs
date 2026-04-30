@@ -6,8 +6,6 @@ pub mod credentials;
 pub mod login_slide;
 pub mod user;
 pub mod user_uid;
-#[cfg(target_family = "wasm")]
-pub mod web_handoff;
 
 use crate::ai::agent_conversations_model::AgentConversationsModel;
 use crate::ai::blocklist::BlocklistAIHistoryModel;

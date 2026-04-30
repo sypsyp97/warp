@@ -5,7 +5,7 @@ use std::sync::Arc;
 use warpui::{Entity, ModelContext, SingletonEntity};
 
 use super::auth_state::AuthState;
-use super::auth_view_modal::{AuthRedirectPayload, AuthViewVariant};
+use super::auth_view_modal::AuthViewVariant;
 use super::AuthStateProvider;
 use crate::server::server_api::auth::{MintCustomTokenError, UserAuthenticationError};
 use crate::server::telemetry::AnonymousUserSignupEntrypoint;
@@ -35,10 +35,6 @@ pub enum AuthManagerEvent {
     AttemptedLoginGatedFeature {
         auth_view_variant: AuthViewVariant,
     },
-    // The current user is anonymous and the client has received a browser intent to sign in with a different Warp account.
-    // Holds an auth payload from the received browser intent.
-    #[allow(dead_code)]
-    LoginOverrideDetected(AuthRedirectPayload),
     /// Failed to mint a new custom token for an anonymous user.
     #[allow(dead_code)]
     MintCustomTokenFailed(MintCustomTokenError),
@@ -80,24 +76,6 @@ impl AuthManager {
     #[cfg(test)]
     pub fn new_for_test(ctx: &mut ModelContext<Self>) -> Self {
         Self::new(ctx)
-    }
-
-    /// Slim fork: there is no `warp.dev` redirect to process, so the entire
-    /// browser-intent → fetch-user pipeline is short-circuited.
-    pub fn initialize_user_from_auth_payload(
-        &mut self,
-        _auth_payload: AuthRedirectPayload,
-        _enforce_state_validation: bool,
-        _ctx: &mut ModelContext<Self>,
-    ) {
-    }
-
-    #[allow(dead_code)]
-    pub fn resume_interrupted_auth_payload(
-        &mut self,
-        _auth_payload: AuthRedirectPayload,
-        _ctx: &mut ModelContext<Self>,
-    ) {
     }
 
     /// Slim fork: there are no Warp credentials to refresh. The CLI

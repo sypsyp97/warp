@@ -28,7 +28,6 @@ use crate::{
     ChannelState, OpenPath,
 };
 use anyhow::{anyhow, ensure, Result};
-use itertools::Itertools;
 use session_sharing_protocol::common::SessionId;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -56,7 +55,6 @@ pub const CLOUD_SETUP_SOURCE: &str = "cloud_setup";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum UriHost {
-    Auth,
     Team,
     /// A host prefix for all actions (e.g.: new tab, new window).
     Action,
@@ -86,7 +84,6 @@ impl FromStr for UriHost {
 
     fn from_str(s: &str) -> Result<Self> {
         match s {
-            "auth" => Ok(Self::Auth),
             "team" => Ok(Self::Team),
             "action" => Ok(Self::Action),
             "launch" => Ok(Self::Launch),
@@ -109,27 +106,6 @@ impl UriHost {
     fn handle(&self, primary_window_id: Option<WindowId>, url: &Url, ctx: &mut AppContext) {
         // Handle host
         match self {
-            UriHost::Auth => {
-                ctx.window_ids()
-                    .collect_vec()
-                    .into_iter()
-                    .for_each(|window_id| {
-                        let Some(root_view_id) = ctx.root_view_id(window_id) else {
-                            return;
-                        };
-                        safe_info!(
-                            safe: ("Dispatched auth url to window {window_id}"),
-                            full: ("Dispatched auth url {url} to window {window_id}")
-                        );
-                        ctx.dispatch_action(
-                            window_id,
-                            &[root_view_id],
-                            "root_view:handle_incoming_auth_url",
-                            &url.clone(),
-                            log::Level::Info,
-                        );
-                    });
-            }
             UriHost::Team => {
                 match url.path_segments().into_iter().flatten().last() {
                     // If the last segment of the URL is "settings", open the team settings page.
@@ -459,9 +435,6 @@ impl UriHost {
     fn window_behavior_hint(&self) -> WindowBehaviorHint {
         use WindowBehaviorHint as W;
         match self {
-            Self::Auth => W::ShowPrimaryWindow(WindowActivationFallbackBehavior::NewWindow {
-                replace_existing: true,
-            }),
             Self::Team | Self::Drive | Self::Settings => W::default(),
             // These URLs always open new windows.
             Self::Launch | Self::SharedSession | Self::Conversation | Self::Home => W::Nothing,
@@ -1310,8 +1283,8 @@ fn validate_custom_uri(url: &Url) -> Result<UriHost> {
         | UriHost::Mcp
         | UriHost::Codex
         | UriHost::Linear => true,
-        // Auth and Home only allow the desktop redirect path
-        UriHost::Auth | UriHost::Home => false,
+        // Home only allows the desktop redirect path
+        UriHost::Home => false,
     };
 
     ensure!(
