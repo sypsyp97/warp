@@ -6,11 +6,9 @@
 //! https://www.notion.so/warpdev/Experiment-Framework-Guide-88954c36a0c3469ea57b427b58249d5f?pvs=4
 
 mod block_onboarding_layer;
-mod login_layer;
 mod rendering;
 pub use block_onboarding_layer::{BlockOnboarding, BLOCK_ONBOARDING_LAYER};
 pub use improved_palette_search_layer::{ImprovedPaletteSearch, IMPROVED_PALETTE_SEARCH_LAYER};
-pub use login_layer::LOGIN_LAYER;
 use warp_core::user_preferences::GetUserPreferences as _;
 
 use crate::auth::auth_state::AuthStateProvider;
@@ -65,7 +63,6 @@ lazy_static! {
     /// EMPTY_LAYER is not included here, since we will never add experiments to it,
     /// and so users can never be assigned to experiments in EMPTY_LAYER.
     static ref LAYERS: Vec<&'static Layer> = vec![
-        &*LOGIN_LAYER,
         &*BLOCK_ONBOARDING_LAYER,
         &*rendering::LAYER,
         &*IMPROVED_PALETTE_SEARCH_LAYER,
