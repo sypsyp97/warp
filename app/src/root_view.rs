@@ -66,7 +66,6 @@ use crate::{
     UpdateQuakeModeEventArg,
 };
 use crate::{
-    auth::auth_view_modal::{AuthView, AuthViewVariant},
     server::server_api::ServerApi,
     workspace::{view::OnboardingTutorial, PaneViewLocator, Workspace},
 };
@@ -99,7 +98,8 @@ use crate::pricing::{PricingInfoModel, PricingInfoModelEvent};
 use warp_graphql::billing::StripeSubscriptionPlan;
 
 use warpui::elements::{
-    Border, ChildAnchor, OffsetPositioning, ParentAnchor, ParentElement, ParentOffsetBounds, Stack,
+    Border, ChildAnchor, Empty, OffsetPositioning, ParentAnchor, ParentElement,
+    ParentOffsetBounds, Stack,
 };
 use warpui::rendering::OnGPUDeviceSelected;
 use warpui::{id, AddWindowOptions, DisplayId, SingletonEntity};
@@ -1659,7 +1659,6 @@ enum AuthOnboardingState {
 pub struct RootView {
     auth_onboarding_state: AuthOnboardingState,
     server_time: Option<Arc<ServerTime>>,
-    auth_view: ViewHandle<AuthView>,
     #[cfg(target_family = "wasm")]
     web_handoff_view: ViewHandle<WebHandoffView>,
     pub server_api: Arc<ServerApi>,
@@ -1694,9 +1693,6 @@ impl RootView {
         ctx.subscribe_to_model(&CloudPreferencesSyncer::handle(ctx), |me, _, event, ctx| {
             me.handle_cloud_preferences_syncer_event(event, ctx);
         });
-
-        let auth_view =
-            ctx.add_typed_action_view(|ctx| AuthView::new(AuthViewVariant::Initial, ctx));
 
         let model_event_sender = global_resource_handles.model_event_sender.clone();
         let workspace_args = WorkspaceArgs {
@@ -1753,7 +1749,6 @@ impl RootView {
         let root_view = Self {
             auth_onboarding_state,
             server_time: None,
-            auth_view,
             #[cfg(target_family = "wasm")]
             web_handoff_view,
             server_api: server_api.clone(),
@@ -2831,9 +2826,6 @@ impl RootView {
                 Self::sync_local_onboarding_to_server(&auth_state, ctx);
 
                 if let AuthOnboardingState::Auth(_) = &self.auth_onboarding_state {
-                    self.auth_view.update(ctx, |auth_view, ctx| {
-                        auth_view.set_variant(ctx, AuthViewVariant::Initial);
-                    });
                     self.auth_onboarding_state
                         .complete_auth_and_create_workspace(ctx);
                     self.start_pending_tutorial(ctx);
@@ -2947,7 +2939,7 @@ impl RootView {
     pub fn focus(&mut self, ctx: &mut ViewContext<Self>) -> bool {
         match &self.auth_onboarding_state {
             AuthOnboardingState::Auth(_) => {
-                ctx.focus(&self.auth_view);
+                // Slim fork: the auth modal has been removed, nothing to focus.
             }
             #[cfg(target_family = "wasm")]
             AuthOnboardingState::WebImport(_) => {
@@ -3078,7 +3070,7 @@ impl View for RootView {
 
     fn render(&self, app: &AppContext) -> Box<dyn Element> {
         let child = match &self.auth_onboarding_state {
-            AuthOnboardingState::Auth(_) => ChildView::new(&self.auth_view).finish(),
+            AuthOnboardingState::Auth(_) => Empty::new().finish(),
             #[cfg(target_family = "wasm")]
             AuthOnboardingState::WebImport(_) => ChildView::new(&self.web_handoff_view).finish(),
             AuthOnboardingState::Onboarding {

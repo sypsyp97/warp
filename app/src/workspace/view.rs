@@ -148,7 +148,7 @@ use crate::ai::execution_profiles::editor::ExecutionProfileEditorManager;
 use crate::ai::execution_profiles::profiles::{AIExecutionProfilesModel, ClientProfileId};
 use crate::auth::auth_manager::{AuthManager, AuthManagerEvent};
 use crate::auth::auth_state::AuthState;
-use crate::auth::auth_view_modal::{AuthView, AuthViewEvent, AuthViewVariant};
+use crate::auth::auth_view_modal::AuthViewVariant;
 #[cfg(feature = "local_fs")]
 use crate::code::editor_management::CodeManager;
 use crate::code::editor_management::CodeSource;
@@ -947,7 +947,6 @@ pub struct Workspace {
     ai_assistant_panel: ViewHandle<AIAssistantPanelView>,
     should_show_ai_assistant_warm_welcome: bool,
     ai_assistant_close_warm_welcome_mouse_state_handle: MouseStateHandle,
-    require_login_modal: ViewHandle<AuthView>,
     workflow_modal: ViewHandle<WorkflowModal>,
     prompt_editor_modal: ViewHandle<PromptEditorModal>,
     agent_toolbar_editor_modal: ViewHandle<AgentToolbarEditorModal>,
@@ -1539,17 +1538,6 @@ impl Workspace {
         });
 
         (settings_pane, theme_chooser_view)
-    }
-
-    fn build_require_login_modal(ctx: &mut ViewContext<Self>) -> ViewHandle<AuthView> {
-        let require_login_modal = ctx.add_typed_action_view(|ctx| {
-            AuthView::new(AuthViewVariant::RequireLoginCloseable, ctx)
-        });
-        ctx.subscribe_to_view(&require_login_modal, move |me, _, event, ctx| {
-            me.handle_require_login_modal_event(event, ctx);
-        });
-
-        require_login_modal
     }
 
     fn build_workflow_modal(
@@ -2606,8 +2594,6 @@ impl Workspace {
             me.handle_free_tier_limit_modal_event(event, ctx);
         });
 
-        let require_login_modal = Self::build_require_login_modal(ctx);
-
         let workflow_modal = Self::build_workflow_modal(ai_client.clone(), ctx);
 
         let theme_creator_modal = Self::build_theme_creator_modal(ctx);
@@ -3045,7 +3031,6 @@ impl Workspace {
             suggested_agent_mode_workflow_modal,
             suggested_rule_modal,
             build_plan_migration_modal,
-            require_login_modal,
             workflow_modal,
             theme_creator_modal,
             theme_deletion_modal,
@@ -9387,19 +9372,6 @@ impl Workspace {
         }
     }
 
-    fn handle_require_login_modal_event(
-        &mut self,
-        event: &AuthViewEvent,
-        ctx: &mut ViewContext<Self>,
-    ) {
-        match event {
-            AuthViewEvent::Close => {
-                self.current_workspace_state.is_require_login_modal_open = false;
-                ctx.notify();
-            }
-        }
-    }
-
     fn handle_theme_creator_modal_event(
         &mut self,
         event: &ThemeCreatorModalEvent,
@@ -9599,8 +9571,8 @@ impl Workspace {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            AuthManagerEvent::AttemptedLoginGatedFeature { auth_view_variant } => {
-                self.open_require_login_modal(*auth_view_variant, ctx)
+            AuthManagerEvent::AttemptedLoginGatedFeature { .. } => {
+                // Slim fork: the require-login modal has been removed; nothing to show.
             }
             AuthManagerEvent::AuthComplete => {
                 // Only show the telemetry banner if the user is an existing user. The new user flow
@@ -12215,17 +12187,6 @@ impl Workspace {
                 );
             });
         }
-    }
-
-    fn open_require_login_modal(&mut self, variant: AuthViewVariant, ctx: &mut ViewContext<Self>) {
-        self.require_login_modal.update(ctx, |modal, ctx| {
-            modal.set_variant(ctx, variant);
-        });
-
-        self.close_all_overlays(ctx);
-        self.current_workspace_state.is_require_login_modal_open = true;
-        ctx.focus(&self.require_login_modal);
-        ctx.notify();
     }
 
     fn open_palette(
@@ -19356,10 +19317,6 @@ impl Workspace {
                 ctx.open_url(&sign_up_url);
             });
         }
-        self.require_login_modal.update(ctx, |auth_modal, ctx| {
-            auth_modal.skip_to_browser_open_step(ctx);
-        });
-        self.open_require_login_modal(AuthViewVariant::RequireLoginCloseable, ctx);
     }
 
     fn redirect_to_sign_in(&mut self) {
@@ -22217,10 +22174,6 @@ impl View for Workspace {
 
         if self.current_workspace_state.is_ctrl_tab_palette_open {
             stack.add_child(ChildView::new(&self.ctrl_tab_palette).finish());
-        }
-
-        if self.current_workspace_state.is_require_login_modal_open {
-            stack.add_child(ChildView::new(&self.require_login_modal).finish());
         }
 
         if self.current_workspace_state.is_theme_creator_modal_open {
