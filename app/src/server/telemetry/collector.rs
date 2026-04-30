@@ -27,6 +27,7 @@ const TELEMETRY_FLUSH_DURATION: Duration = Duration::from_secs(30);
 
 /// Max telemetry events to write to disk. This is bounded to limit the size of the file as well
 /// as latency of writing the file.
+#[allow(dead_code)]
 const MAX_TELEMETRY_EVENTS_TO_STORE: usize = 20;
 
 /// Maximum time to wait for the telemetry flush network request during shutdown.
@@ -82,18 +83,8 @@ impl TelemetryCollector {
 
     /// Writes all queued but unsent telemetry telemetry events to disk so that they may be sent
     /// on the next app startup.
-    pub fn write_telemetry_events_to_disk(&self, ctx: &mut ModelContext<TelemetryCollector>) {
-        match self.server_api.persist_telemetry_events(
-            MAX_TELEMETRY_EVENTS_TO_STORE,
-            PrivacySettings::as_ref(ctx).get_snapshot(ctx),
-        ) {
-            Ok(()) => {
-                log::info!("Successfully wrote telemetry events to disk")
-            }
-            Err(e) => {
-                log::error!("Failed to write telemetry events to disk {e:#}");
-            }
-        }
+    pub fn write_telemetry_events_to_disk(&self, _ctx: &mut ModelContext<TelemetryCollector>) {
+        // Slim fork: telemetry is permanently disabled.  No-op.
     }
 
     /// Flushes telemetry events when the app is shutting down.

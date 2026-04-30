@@ -164,6 +164,7 @@ pub trait AuthClient: 'static + Send + Sync {
     /// Returns conversation usage history for the current user over the past n days.
     /// If last_updated_end_timestamp is provided, only conversations with
     /// lastUpdated earlier than this timestamp are returned.
+    #[allow(dead_code)]
     async fn get_conversation_usage_history(
         &self,
         days: Option<i32>,
@@ -241,12 +242,13 @@ impl AuthClient for ServerApi {
     }
 
     async fn get_or_refresh_access_token(&self) -> Result<AuthToken> {
-        if cfg!(feature = "skip_login") {
-            bail!("skip_login enabled; failing all authenticated requests");
-        }
-
+        // Slim fork: there is no Warp account. We never expect this to
+        // be hit on the hot path because every call site is gated on
+        // `is_logged_in()`, but if it does fire we fail quietly with a
+        // distinct message that consumers can match on if they want to
+        // demote the log level.
         let Some(credentials) = self.auth_state.credentials() else {
-            bail!("Attempted to retrieve access token when user is logged out");
+            bail!("slim fork has no Warp account; authenticated request skipped");
         };
 
         match credentials {

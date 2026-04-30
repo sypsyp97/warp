@@ -816,11 +816,13 @@ impl ServerApi {
     /// disk.
     pub fn persist_telemetry_events(
         &self,
-        max_event_count: usize,
-        settings_snapshot: PrivacySettingsSnapshot,
+        _max_event_count: usize,
+        _settings_snapshot: PrivacySettingsSnapshot,
     ) -> Result<()> {
-        self.telemetry_api
-            .flush_and_persist_events(max_event_count, settings_snapshot)
+        // Slim fork: telemetry is permanently off — drop everything on
+        // the floor without ever creating a file.
+        let _ = warpui::telemetry::flush_events();
+        Ok(())
     }
 
     /// Hits the /ai/generate_input_suggestions endpoint to get the predicted next action, based on past context.

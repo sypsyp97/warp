@@ -20,7 +20,6 @@ use crate::ai::predict::generate_am_query_suggestions::{
 };
 use crate::ai_assistant::execution_context::WarpAiExecutionContext;
 use crate::network::NetworkStatus;
-use crate::report_error;
 use crate::server::server_api::ServerApiProvider;
 use crate::server::telemetry::PromptSuggestionFallbackReason;
 use crate::settings::AISettings;
@@ -289,9 +288,10 @@ impl PassiveSuggestionsModel {
                 let prompt_suggestion = match result {
                     Ok(response) => map_prompt_suggestions_response(response),
                     Err(err) => {
-                        report_error!(
-                            anyhow::Error::new(err).context("Failed to fetch prompt suggestions")
-                        );
+                        // Slim fork: prompt-suggestions endpoint is on
+                        // Warp's relay. Without an account it always
+                        // fails — demote to debug.
+                        log::debug!("Prompt suggestions unavailable: {err:#}");
                         AgentModePromptSuggestion::Error
                     }
                 };

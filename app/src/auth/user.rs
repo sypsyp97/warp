@@ -166,6 +166,7 @@ impl User {
         self.metadata.display_name.clone()
     }
 
+    #[allow(dead_code)]
     pub fn test() -> Self {
         Self {
             local_id: UserUid::new(TEST_USER_UID),

@@ -2499,7 +2499,7 @@ fn read_node(conn: &mut SqliteConnection, node: model::PaneNode) -> Result<PaneN
 
                     let current_page = SettingsSection::from_str(&settings_pane.current_page)
                         .ok()
-                        .unwrap_or_default();
+                        .unwrap_or(SettingsSection::WarpAgent);
                     LeafContents::Settings(SettingsPaneSnapshot::Local {
                         current_page,
                         search_query: None,

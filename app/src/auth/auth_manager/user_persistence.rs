@@ -62,11 +62,13 @@ pub enum UserPersistenceError {
 }
 
 impl PersistedUser {
+    #[cfg(test)]
     pub fn from_secure_storage(ctx: &AppContext) -> Result<PersistedUser, UserPersistenceError> {
         let value = ctx.secure_storage().read_value(USER_STORAGE_KEY)?;
         Ok(serde_json::from_str::<PersistedUser>(&value)?)
     }
 
+    #[allow(dead_code)]
     pub fn write_to_secure_storage(&self, ctx: &AppContext) -> Result<(), UserPersistenceError> {
         let serialized_user = serde_json::to_string(self)?;
         Ok(ctx

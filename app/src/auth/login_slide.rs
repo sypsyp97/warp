@@ -121,6 +121,7 @@ pub enum LoginSlideEvent {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LoginSlideSource {
     /// Reached via the normal onboarding flow (e.g. agent intention requires an account).
+    #[allow(dead_code)]
     OnboardingFlow,
     /// Reached via the "Log in" link on the intro / welcome slide.
     LoginExistingUserFromWelcome,

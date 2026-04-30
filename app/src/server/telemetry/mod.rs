@@ -143,6 +143,7 @@ impl TelemetryApi {
     /// Writes the last `max_event_count` events into disk. This is useful for persisting events
     /// where we can't make a network call to Rudder (such as when the app quits). To flush these
     /// events to Rudder, call `flush_events_to_rudder_from_disk`.
+    #[allow(dead_code)]
     pub fn flush_and_persist_events(
         &self,
         max_event_count: usize,
@@ -155,6 +156,7 @@ impl TelemetryApi {
         )
     }
 
+    #[allow(dead_code)]
     fn flush_and_persist_events_at_path(
         &self,
         _max_event_count: usize,

@@ -79,14 +79,11 @@ impl AuthState {
     /// 4. Persisted user from secure storage
     #[cfg_attr(target_family = "wasm", allow(dead_code))]
     pub fn initialize(ctx: &AppContext, _api_key: Option<String>) -> Self {
-        // Slim fork: there is no Warp account, so we install a synthetic
-        // "test" user with a local-only Test credential. This satisfies
-        // every code path that branches on `is_logged_in` / `user.is_some`
-        // without any network call, secure-storage probe, or env var.
-        let state = Self::new(ctx);
-        state.set_user(Some(User::test()));
-        state.set_credentials(Some(Credentials::Test));
-        state
+        // Slim fork: there is no Warp account. Leave credentials/user
+        // empty so every `is_logged_in()` branch in the codebase that
+        // gates a cloud call naturally short-circuits. AI gating uses
+        // a separate override in `AISettings::is_any_ai_enabled`.
+        Self::new(ctx)
     }
 
     /// Determines the appropriate persistence action based on the current auth state.
@@ -128,28 +125,6 @@ impl AuthState {
         }
     }
 
-    /// Applies a deserialized PersistedUser, splitting it into User and Credentials.
-    fn apply_persisted_user(&self, persisted: PersistedUser) {
-        let user = User {
-            is_onboarded: persisted.is_onboarded,
-            local_id: persisted.local_id,
-            metadata: persisted.metadata,
-            needs_sso_link: persisted.needs_sso_link,
-            anonymous_user_type: persisted.anonymous_user_type,
-            is_on_work_domain: persisted.is_on_work_domain,
-            linked_at: persisted.linked_at,
-            personal_object_limits: persisted.personal_object_limits,
-            principal_type: PrincipalType::default(),
-        };
-        *self.user.write() = Some(user);
-
-        if persisted.auth_tokens.refresh_token.is_empty() {
-            log::warn!("Skipping credentials update due to empty refresh token");
-            return;
-        }
-        *self.credentials.write() = Some(Credentials::Firebase(persisted.auth_tokens));
-    }
-
     /// Sets the user. This should only be called by the AuthManager, to ensure
     /// side-effects are handled properly (e.g. notifying other models, persisting
     /// the user to secure storage, etc.).
@@ -182,10 +157,7 @@ impl AuthState {
 
     /// Determines whether the user should be considered as logged in.
     pub fn is_logged_in(&self) -> bool {
-        // Slim fork: report as always logged in so AI features and
-        // cloud-objects-style code paths don't gate behind a Warp
-        // account. The actual cloud calls are stubbed out elsewhere.
-        true
+        self.credentials.read().is_some()
     }
 
     /// Returns whether the user should be treated as not having a full account.

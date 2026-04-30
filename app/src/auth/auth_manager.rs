@@ -254,7 +254,8 @@ impl AuthManager {
         };
 
         let Some(token) = credentials.login_token() else {
-            log::info!("Attempted to refresh a user with no login token, skipping");
+            // Slim fork: with no Warp account this is the normal state.
+            log::debug!("No login token; user refresh skipped");
             return;
         };
 

@@ -53,7 +53,6 @@ use crate::{
             TemplatableMCPServerInstallation, TemplatableMCPServerManager,
         },
     },
-    auth::AuthStateProvider,
     cloud_object::CloudObject,
     server::{
         ids::{ServerId, SyncId},
@@ -359,6 +358,7 @@ pub enum AgentDriverError {
     #[error(
         "Failed to authenticate with server - please log in via 'oz login', provide an API key via '--api-key <key>', or set the WARP_API_KEY environment variable"
     )]
+    #[allow(dead_code)]
     NotLoggedIn,
     #[error("Saved prompt not found for id {0}")]
     AIWorkflowNotFound(String),
@@ -495,11 +495,9 @@ impl AgentDriver {
             )
         );
 
-        // If we're not logged in, the root view will go to an auth screen, and all subsequent steps will fail.
-        // This should be impossible, since we enforce login before reaching this point.
-        if !AuthStateProvider::as_ref(ctx).get().is_logged_in() {
-            return Err(AgentDriverError::NotLoggedIn);
-        }
+        // Slim fork: no Warp account, so skip the login gate. Cloud-only
+        // sub-features inside the driver short-circuit on credentials=None
+        // independently.
 
         // Extract the conversation ID if we're restoring a conversation.
         // This will be used when submitting the initial query to continue the conversation.

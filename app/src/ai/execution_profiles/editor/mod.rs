@@ -15,7 +15,6 @@ use crate::view_components::{
     action_button::{ActionButton, DangerSecondaryTheme},
     Dropdown, DropdownItem, FilterableDropdown, SubmittableTextInput, SubmittableTextInputEvent,
 };
-use crate::workspace::WorkspaceAction;
 use crate::workspaces::user_workspaces::UserWorkspacesEvent;
 use crate::TemplatableMCPServerManager;
 use crate::UserWorkspaces;
@@ -84,8 +83,8 @@ fn render_upgrade_footer(
         Some(Cursor::PointingHand),
         |_is_hovered, _ctx, _app| {},
     )
-    .with_clickable_char_range(upgrade_start..label.len(), move |_modifiers, ctx, _app| {
-        ctx.dispatch_typed_action(WorkspaceAction::ShowUpgrade);
+    .with_clickable_char_range(upgrade_start..label.len(), |_modifiers, _ctx, _app| {
+        // Slim fork: no Warp account, no upgrade flow.
     })
     .finish();
 
