@@ -177,9 +177,10 @@ impl ApiKeyManager {
         let key_json = match ctx.secure_storage().read_value(SECURE_STORAGE_KEY) {
             Ok(json) => json,
             Err(e) => {
-                if !matches!(e, secure_storage::Error::NotFound) {
-                    log::error!("Failed to read API keys from secure storage: {e:#}");
-                }
+                // Slim fork: on a fresh install secure storage is empty;
+                // every error here just means "no saved keys yet", so log
+                // at debug level instead of error to avoid scaring users.
+                log::debug!("No API keys in secure storage yet: {e:#}");
                 return ApiKeys::default();
             }
         };

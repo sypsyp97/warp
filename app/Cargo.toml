@@ -442,6 +442,7 @@ creating_shared_sessions = []
 cross_repo_context = []
 codebase_index_persistence = ["full_source_code_embedding"]
 default = [
+    "skip_login",
     "agent_mode",
     "viewing_shared_sessions",
     "render_continuous_block_selections_with_single_border",

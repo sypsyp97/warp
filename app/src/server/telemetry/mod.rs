@@ -157,25 +157,14 @@ impl TelemetryApi {
 
     fn flush_and_persist_events_at_path(
         &self,
-        max_event_count: usize,
-        settings_snapshot: PrivacySettingsSnapshot,
-        path: impl AsRef<Path>,
+        _max_event_count: usize,
+        _settings_snapshot: PrivacySettingsSnapshot,
+        _path: impl AsRef<Path>,
     ) -> Result<()> {
-        if settings_snapshot.should_disable_telemetry() {
-            log::info!("Not writing queued events to disk because telemetry is disabled.");
-            return Result::Ok(());
-        }
-        log::info!("Writing queued events to disk because telemetry is enabled.");
-
-        let file = File::create(path)?;
-
-        let events = warpui::telemetry::flush_events();
-        if events.len() > max_event_count {
-            log::error!("More telemetry events in queue than the limit to persist")
-        }
-
-        self.persist_events_at_path(&file, max_event_count, events)?;
-
+        // Slim fork: telemetry is permanently disabled. Drop any queued
+        // events on the floor so nothing ever lands on disk or hits a
+        // network endpoint.
+        let _ = warpui::telemetry::flush_events();
         Ok(())
     }
 

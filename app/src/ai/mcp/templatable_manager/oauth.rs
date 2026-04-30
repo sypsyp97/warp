@@ -540,9 +540,9 @@ pub(crate) fn load_credentials_from_secure_storage<T: DeserializeOwned + Default
     app.secure_storage()
         .read_value(key)
         .inspect_err(|err| {
-            if !matches!(err, warpui_extras::secure_storage::Error::NotFound) {
-                log::warn!("Failed to read MCP credentials from secure storage: {err:#}");
-            }
+            // Slim fork: every read error here just means "no MCP creds
+            // saved yet" on a fresh install. Demote to debug.
+            log::debug!("No MCP credentials in secure storage yet: {err:#}");
         })
         .ok()
         .and_then(|value| serde_json::from_str(&value).ok())
