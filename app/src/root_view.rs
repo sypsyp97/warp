@@ -2,16 +2,13 @@ use crate::ai::agent::api::ServerConversationToken;
 use crate::ai::blocklist::SerializedBlockListItem;
 use crate::appearance::Appearance;
 use crate::auth::auth_manager::{AuthManager, AuthManagerEvent};
-use crate::auth::auth_override_warning_modal::AuthOverrideWarningModalVariant;
 use crate::auth::auth_state::AuthState;
 use crate::auth::auth_view_modal::AuthRedirectPayload;
 use crate::auth::login_slide::{LoginSlideEvent, LoginSlideSource, LoginSlideView};
-use crate::auth::paste_auth_token_modal::{PasteAuthTokenModalEvent, PasteAuthTokenModalView};
 use crate::auth::AuthStateProvider;
 use crate::autoupdate::{AutoupdateState, AutoupdateStateEvent};
 use crate::cloud_object::model::persistence::CloudModel;
 use crate::cloud_object::{GenericStringObjectFormat, JsonObjectType, ObjectType};
-use crate::drive::export::ExportManager;
 use crate::drive::items::WarpDriveItemId;
 use crate::drive::{CloudObjectTypeAndId, OpenWarpDriveObjectArgs, OpenWarpDriveObjectSettings};
 use crate::experiments::{BlockOnboarding, Experiment};
@@ -70,7 +67,6 @@ use crate::{
     UpdateQuakeModeEventArg,
 };
 use crate::{
-    auth::auth_override_warning_modal::{AuthOverrideWarningModal, AuthOverrideWarningModalEvent},
     auth::auth_view_modal::{AuthView, AuthViewVariant},
     server::server_api::ServerApi,
     workspace::{view::OnboardingTutorial, PaneViewLocator, Workspace},
@@ -1649,7 +1645,6 @@ fn mark_local_onboarding_completed(ctx: &AppContext) {
 /// Whether auth and onboarding have completed and we should render the `Workspace`.
 enum AuthOnboardingState {
     Auth(Box<WorkspaceArgs>),
-    ConfirmIncomingAuth(Box<WorkspaceArgs>),
     /// The client is importing auth state from the host application.
     #[cfg(target_family = "wasm")]
     WebImport(AuthOnboardingTarget),
@@ -1670,7 +1665,6 @@ pub struct RootView {
     auth_onboarding_state: AuthOnboardingState,
     server_time: Option<Arc<ServerTime>>,
     auth_view: ViewHandle<AuthView>,
-    auth_override_view: ViewHandle<AuthOverrideWarningModal>,
     #[cfg(target_family = "wasm")]
     web_handoff_view: ViewHandle<WebHandoffView>,
     pub server_api: Arc<ServerApi>,
@@ -1686,7 +1680,6 @@ pub struct RootView {
     pending_tutorial: Option<OnboardingTutorial>,
     /// settings to apply after a new user login / initial cloud load completes
     pending_post_auth_onboarding_settings: Option<SelectedSettings>,
-    paste_auth_token_modal: Option<ViewHandle<PasteAuthTokenModalView>>,
 }
 
 impl RootView {
@@ -1709,14 +1702,6 @@ impl RootView {
 
         let auth_view =
             ctx.add_typed_action_view(|ctx| AuthView::new(AuthViewVariant::Initial, ctx));
-
-        let auth_override_view: ViewHandle<_> = ctx.add_typed_action_view(|ctx| {
-            AuthOverrideWarningModal::new(ctx, AuthOverrideWarningModalVariant::OnboardingView)
-        });
-
-        ctx.subscribe_to_view(&auth_override_view, |me, _, event, ctx| {
-            me.handle_auth_override_warning_modal_event(event, ctx);
-        });
 
         let model_event_sender = global_resource_handles.model_event_sender.clone();
         let workspace_args = WorkspaceArgs {
@@ -1774,7 +1759,6 @@ impl RootView {
             auth_onboarding_state,
             server_time: None,
             auth_view,
-            auth_override_view,
             #[cfg(target_family = "wasm")]
             web_handoff_view,
             server_api: server_api.clone(),
@@ -1783,7 +1767,6 @@ impl RootView {
             window_id: ctx.window_id(),
             pending_tutorial: None,
             pending_post_auth_onboarding_settings: None,
-            paste_auth_token_modal: None,
         };
 
         match &root_view.auth_onboarding_state {
@@ -2250,17 +2233,8 @@ impl RootView {
                 });
             }
             AgentOnboardingEvent::UpgradePasteTokenFromClipboardRequested => {
-                let modal = ctx.add_typed_action_view(PasteAuthTokenModalView::new);
-                ctx.subscribe_to_view(&modal, |me, _, event, ctx| match event {
-                    PasteAuthTokenModalEvent::Cancelled => {
-                        me.paste_auth_token_modal = None;
-                        me.focus(ctx);
-                        ctx.notify();
-                    }
-                });
-                ctx.focus(&modal);
-                self.paste_auth_token_modal = Some(modal);
-                ctx.notify();
+                // Slim fork: paste-auth-token modal is gone with the rest of
+                // the cloud login flow, so this onboarding event is a no-op.
             }
             AgentOnboardingEvent::PrivacySettingsFromTerminalThemeSlideRequested => {
                 let AuthOnboardingState::Onboarding {
@@ -2870,8 +2844,6 @@ impl RootView {
 
         match event {
             AuthManagerEvent::AuthComplete => {
-                self.paste_auth_token_modal = None;
-
                 // If onboarding was completed pre-login, sync the server-side flag now
                 // that the user is authenticated. This must happen regardless of the
                 // current `auth_onboarding_state` so we also cover users who skipped
@@ -2879,10 +2851,7 @@ impl RootView {
                 // entrypoint (i.e. we're already in the `Terminal` state).
                 Self::sync_local_onboarding_to_server(&auth_state, ctx);
 
-                if let AuthOnboardingState::Auth(_)
-                | AuthOnboardingState::ConfirmIncomingAuth(_) =
-                    &self.auth_onboarding_state
-                {
+                if let AuthOnboardingState::Auth(_) = &self.auth_onboarding_state {
                     self.auth_view.update(ctx, |auth_view, ctx| {
                         auth_view.set_variant(ctx, AuthViewVariant::Initial);
                     });
@@ -2938,9 +2907,7 @@ impl RootView {
                 UserAuthenticationError::MissingStateParameter => {}
             },
             AuthManagerEvent::SkippedLogin => {
-                if let AuthOnboardingState::Auth(_) | AuthOnboardingState::ConfirmIncomingAuth(_) =
-                    &self.auth_onboarding_state
-                {
+                if let AuthOnboardingState::Auth(_) = &self.auth_onboarding_state {
                     self.auth_onboarding_state
                         .complete_auth_and_create_workspace(ctx);
                     self.start_pending_tutorial(ctx);
@@ -2959,65 +2926,8 @@ impl RootView {
                 }
                 self.focus(ctx);
             }
-            AuthManagerEvent::LoginOverrideDetected(interrupted_auth_payload) => {
-                match &self.auth_onboarding_state {
-                    AuthOnboardingState::Auth(workspace_args)
-                    | AuthOnboardingState::ConfirmIncomingAuth(workspace_args) => {
-                        self.open_auth_override_warning_modal(
-                            workspace_args.clone(),
-                            interrupted_auth_payload.clone(),
-                            ctx,
-                        );
-                    }
-                    _ => {}
-                }
-            }
             _ => {}
         }
-    }
-
-    fn handle_auth_override_warning_modal_event(
-        &mut self,
-        event: &AuthOverrideWarningModalEvent,
-        ctx: &mut ViewContext<Self>,
-    ) {
-        match event {
-            AuthOverrideWarningModalEvent::Close => {
-                if matches!(
-                    self.auth_onboarding_state,
-                    AuthOnboardingState::ConfirmIncomingAuth(_)
-                ) {
-                    self.log_out(&(), ctx);
-                }
-            }
-            AuthOverrideWarningModalEvent::BulkExport => {
-                self.export_all_warp_drive_objects(ctx);
-            }
-        }
-    }
-
-    fn open_auth_override_warning_modal(
-        &mut self,
-        workspace_args: Box<WorkspaceArgs>,
-        auth_payload: AuthRedirectPayload,
-        ctx: &mut ViewContext<Self>,
-    ) {
-        self.auth_override_view.update(ctx, |modal, _| {
-            modal.set_interrupted_auth_payload(auth_payload);
-        });
-        self.auth_onboarding_state = AuthOnboardingState::ConfirmIncomingAuth(workspace_args);
-        ctx.emit(RootViewEvent::AuthOnboardingStateChanged);
-        self.focus(ctx);
-        ctx.notify();
-    }
-
-    fn export_all_warp_drive_objects(&mut self, ctx: &mut ViewContext<Self>) {
-        let window_id = ctx.window_id();
-        let cloud_model = CloudModel::as_ref(ctx);
-        let exportable_objects = cloud_model.get_all_exportable_object_ids();
-        ExportManager::handle(ctx).update(ctx, move |export_manager, ctx| {
-            export_manager.export(window_id, &exportable_objects, ctx);
-        });
     }
 
     /// This is called when importing authentication state from the host app completes.
@@ -3056,17 +2966,9 @@ impl RootView {
     }
 
     pub fn focus(&mut self, ctx: &mut ViewContext<Self>) -> bool {
-        if let Some(modal) = &self.paste_auth_token_modal {
-            ctx.focus(modal);
-            ctx.notify();
-            return true;
-        }
         match &self.auth_onboarding_state {
             AuthOnboardingState::Auth(_) => {
                 ctx.focus(&self.auth_view);
-            }
-            AuthOnboardingState::ConfirmIncomingAuth(_) => {
-                ctx.focus(&self.auth_override_view);
             }
             #[cfg(target_family = "wasm")]
             AuthOnboardingState::WebImport(_) => {
@@ -3175,8 +3077,6 @@ impl View for RootView {
     fn on_focus(&mut self, focus_ctx: &FocusContext, ctx: &mut ViewContext<Self>) {
         if focus_ctx.is_self_focused() {
             self.focus(ctx);
-        } else if self.paste_auth_token_modal.is_some() {
-            // Modal is open — focus belongs to the editor inside it.
         } else if matches!(
             self.auth_onboarding_state,
             AuthOnboardingState::Onboarding { .. }
@@ -3200,9 +3100,6 @@ impl View for RootView {
     fn render(&self, app: &AppContext) -> Box<dyn Element> {
         let child = match &self.auth_onboarding_state {
             AuthOnboardingState::Auth(_) => ChildView::new(&self.auth_view).finish(),
-            AuthOnboardingState::ConfirmIncomingAuth(_) => {
-                ChildView::new(&self.auth_override_view).finish()
-            }
             #[cfg(target_family = "wasm")]
             AuthOnboardingState::WebImport(_) => ChildView::new(&self.web_handoff_view).finish(),
             AuthOnboardingState::Onboarding {
@@ -3216,10 +3113,6 @@ impl View for RootView {
 
         let mut stack = Stack::new();
         stack.add_child(child);
-
-        if let Some(modal) = &self.paste_auth_token_modal {
-            stack.add_child(ChildView::new(modal).finish());
-        }
 
         if let Some(traffic_light_data) = self.traffic_light_data(app) {
             let theme = Appearance::as_ref(app).theme();
@@ -3325,8 +3218,7 @@ impl AuthOnboardingState {
 
         // If we didn't transition to Onboarding, set the Terminal state.
         match self {
-            AuthOnboardingState::Auth(ref args)
-            | AuthOnboardingState::ConfirmIncomingAuth(ref args) => {
+            AuthOnboardingState::Auth(ref args) => {
                 let workspace = args.clone().create_workspace(ctx);
                 *self = AuthOnboardingState::Terminal(workspace);
             }
@@ -3341,9 +3233,7 @@ impl AuthOnboardingState {
 
     fn try_open_onboarding_slides(&mut self, ctx: &mut ViewContext<RootView>) {
         let target = match self {
-            AuthOnboardingState::Auth(args) | AuthOnboardingState::ConfirmIncomingAuth(args) => {
-                AuthOnboardingTarget::Workspace(args.clone())
-            }
+            AuthOnboardingState::Auth(args) => AuthOnboardingTarget::Workspace(args.clone()),
             AuthOnboardingState::Terminal(workspace) => {
                 AuthOnboardingTarget::Terminal(workspace.clone())
             }
@@ -3366,7 +3256,7 @@ impl AuthOnboardingState {
     #[cfg(target_family = "wasm")]
     fn show_web_handoff_view(&mut self) {
         match self {
-            AuthOnboardingState::Auth(args) | AuthOnboardingState::ConfirmIncomingAuth(args) => {
+            AuthOnboardingState::Auth(args) => {
                 *self =
                     AuthOnboardingState::WebImport(AuthOnboardingTarget::Workspace(args.clone()));
             }
@@ -3392,10 +3282,6 @@ impl AuthOnboardingState {
     fn log_out(&mut self, ctx: &mut ViewContext<RootView>) {
         match self {
             AuthOnboardingState::Auth(_) => (),
-            AuthOnboardingState::ConfirmIncomingAuth(workspace_args) => {
-                *self = AuthOnboardingState::Auth(workspace_args.clone());
-                ctx.emit(RootViewEvent::AuthOnboardingStateChanged);
-            }
             #[cfg(target_family = "wasm")]
             AuthOnboardingState::WebImport(_) => {
                 // TODO(ben): Eventually, we could support logout here by logging out of the JS
