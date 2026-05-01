@@ -51,8 +51,16 @@ fn build_command_signatures() -> anyhow::Result<()> {
 }
 
 fn run_npm_tsc(js_dir: &str) -> anyhow::Result<()> {
-    // Make sure typescript is locally available before invoking the wrapper.
-    run_build_in(js_dir, "npm", &["install", "--no-save", "typescript"])?;
+    // `--no-save` keeps it out of package.json. `--no-package-lock` is
+    // critical: without it npm rewrites the project's yarn.lock into the
+    // yarn-classic v1 format (npm sees the existing yarn.lock and tries to
+    // be helpful), which corrupts the lockfile every time a yarn-berry user
+    // runs `cargo check`.
+    run_build_in(
+        js_dir,
+        "npm",
+        &["install", "--no-save", "--no-package-lock", "typescript"],
+    )?;
     run_build_in(js_dir, "npx", &["tsc", "-p", "tsconfig.json"])
 }
 
