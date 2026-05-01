@@ -1,5 +1,4 @@
 use crate::{
-    auth::AuthStateProvider,
     changelog_model::ChangelogModel,
     channel::ChannelState,
     features::FeatureFlag,
@@ -512,11 +511,7 @@ impl View for ResourceCenterMainView {
 
         let mut main_page = Flex::column();
 
-        if !AuthStateProvider::as_ref(app)
-            .get()
-            .is_anonymous_or_logged_out()
-            && !FeatureFlag::AvatarInTabBar.is_enabled()
-        {
+        if !FeatureFlag::AvatarInTabBar.is_enabled() {
             main_page = main_page.with_child(invite_button);
         }
 

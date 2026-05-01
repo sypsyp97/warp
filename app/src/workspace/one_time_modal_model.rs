@@ -177,12 +177,7 @@ impl OneTimeModalModel {
             return false;
         }
 
-        // Check if user is authenticated
         let auth_state = crate::auth::AuthStateProvider::as_ref(ctx).get();
-
-        if auth_state.is_anonymous_or_logged_out() {
-            return false;
-        }
 
         // Check if current workspace has sunsetted_to_build_ts set
         let user_workspaces = UserWorkspaces::as_ref(ctx);

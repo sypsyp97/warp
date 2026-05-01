@@ -1357,8 +1357,6 @@ impl AISettings {
     }
 
     pub fn is_any_ai_enabled(&self, app: &AppContext) -> bool {
-        // Slim fork: no Warp account ever exists, so the
-        // is_anonymous_or_logged_out gate from upstream is dropped.
         *self.is_any_ai_enabled && !self.is_ai_disabled_due_to_remote_session_org_policy(app)
     }
 

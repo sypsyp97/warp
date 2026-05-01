@@ -106,7 +106,6 @@ pub enum CommandSearchAction {
     Close,
     Resize,
     OpenUpgradeLink(String),
-    AttemptLoginGatedUpgrade,
 }
 
 struct CommandSearchViewState {
@@ -611,7 +610,6 @@ impl CommandSearchView {
                 if team.billing_metadata.can_upgrade_to_higher_tier_plan() {
                     if has_admin_permissions {
                         self.render_error_header_with_upgrade_link(
-                            app,
                             appearance,
                             Some(team.uid),
                             current_user_id,
@@ -623,7 +621,7 @@ impl CommandSearchView {
                     self.render_error_header_text(message, appearance)
                 }
             } else {
-                self.render_error_header_with_upgrade_link(app, appearance, None, current_user_id)
+                self.render_error_header_with_upgrade_link(appearance, None, current_user_id)
             }
         } else {
             self.render_error_header_text(message, appearance)
@@ -662,7 +660,6 @@ impl CommandSearchView {
 
     fn render_error_header_with_upgrade_link(
         &self,
-        app: &AppContext,
         appearance: &Appearance,
         team_uid: Option<ServerId>,
         user_id: UserUid,
@@ -675,36 +672,19 @@ impl CommandSearchView {
             .map(UserWorkspaces::upgrade_link_for_team)
             .unwrap_or_else(|| UserWorkspaces::upgrade_link(user_id));
 
-        let link = if AuthStateProvider::as_ref(app)
-            .get()
-            .is_anonymous_or_logged_out()
-        {
-            appearance
-                .ui_builder()
-                .link(
-                    "Upgrade".into(),
-                    None,
-                    Some(Box::new(move |ctx| {
-                        ctx.dispatch_typed_action(CommandSearchAction::AttemptLoginGatedUpgrade);
-                    })),
-                    self.upgrade_link.clone(),
-                )
-                .soft_wrap(false)
-        } else {
-            appearance
-                .ui_builder()
-                .link(
-                    "Upgrade".into(),
-                    None,
-                    Some(Box::new(move |ctx| {
-                        ctx.dispatch_typed_action(CommandSearchAction::OpenUpgradeLink(
-                            upgrade_link.clone(),
-                        ));
-                    })),
-                    self.upgrade_link.clone(),
-                )
-                .soft_wrap(false)
-        };
+        let link = appearance
+            .ui_builder()
+            .link(
+                "Upgrade".into(),
+                None,
+                Some(Box::new(move |ctx| {
+                    ctx.dispatch_typed_action(CommandSearchAction::OpenUpgradeLink(
+                        upgrade_link.clone(),
+                    ));
+                })),
+                self.upgrade_link.clone(),
+            )
+            .soft_wrap(false);
 
         row.add_child(
             appearance
@@ -975,7 +955,6 @@ impl TypedActionView for CommandSearchView {
             OpenUpgradeLink(upgrade_link) => {
                 ctx.open_url(upgrade_link);
             }
-            AttemptLoginGatedUpgrade => {}
         }
     }
 }

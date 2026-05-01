@@ -220,19 +220,8 @@ impl CloudViewModel {
     ) -> ContentEditability {
         match CloudModel::as_ref(app).get_by_uid(object_uid) {
             Some(object) => {
-                let access_level = Self::object_access_level(object, app);
-                if access_level < SharingAccessLevel::Edit {
+                if Self::object_access_level(object, app) < SharingAccessLevel::Edit {
                     ContentEditability::ReadOnly
-                } else if AuthStateProvider::as_ref(app)
-                    .get()
-                    .is_anonymous_or_logged_out()
-                {
-                    // The object is editable, but the user is not logged in.
-                    if object.space(app) == Space::Personal {
-                        ContentEditability::Editable
-                    } else {
-                        ContentEditability::RequiresLogin
-                    }
                 } else {
                     ContentEditability::Editable
                 }

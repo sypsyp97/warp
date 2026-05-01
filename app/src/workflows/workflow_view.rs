@@ -78,7 +78,7 @@ use crate::{
         workflow::{Argument, Workflow},
         CloudWorkflow,
     },
-    workspace::{ToastStack, WorkspaceAction},
+    workspace::ToastStack,
     FeatureFlag, UserWorkspaces,
 };
 
@@ -2723,12 +2723,7 @@ impl WorkflowView {
             .unwrap_or_else(|| UserWorkspaces::upgrade_link(user_id));
 
         let window_id = ctx.window_id();
-        let toast_link = if self.auth_state.is_anonymous_or_logged_out() {
-            ToastLink::new("Upgrade for more credits.".into())
-                .with_onclick_action(WorkspaceAction::AttemptLoginGatedAIUpgrade)
-        } else {
-            ToastLink::new("Upgrade for more credits.".into()).with_href(upgrade_link)
-        };
+        let toast_link = ToastLink::new("Upgrade for more credits.".into()).with_href(upgrade_link);
 
         crate::workspace::ToastStack::handle(ctx).update(ctx, |stack, ctx| {
             stack.add_ephemeral_toast(

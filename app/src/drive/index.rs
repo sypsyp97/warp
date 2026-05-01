@@ -397,13 +397,6 @@ impl DriveIndexAction {
         }
     }
 
-    pub fn blocked_for_anonymous_user(&self) -> bool {
-        use DriveIndexAction::*;
-        matches!(
-            self,
-            OpenTeamSettingsPage | ViewPlans { .. } | ManageBilling { .. }
-        )
-    }
 }
 
 pub enum DriveIndexEvent {
@@ -2259,13 +2252,6 @@ impl DriveIndex {
         if (matches!(section, DriveIndexSection::CreateATeam)
             || matches!(section, DriveIndexSection::JoinTeam))
             && matches!(self.index_variant, DriveIndexVariant::Trash)
-        {
-            return None;
-        }
-
-        // Do not render "Join team" sections for anonymous users
-        if matches!(section, DriveIndexSection::JoinTeam)
-            && self.auth_state.is_anonymous_or_logged_out()
         {
             return None;
         }
@@ -4862,10 +4848,6 @@ impl DriveIndex {
             return;
         };
 
-        if self.auth_state.is_anonymous_or_logged_out() {
-            return;
-        }
-
         self.reset_menus(ctx);
         if let Some(server_id) = cloud_object_type_and_id.server_id() {
             self.share_dialog_open_for_object = Some(*warp_drive_item_id);
@@ -5184,11 +5166,6 @@ impl TypedActionView for DriveIndex {
     type Action = DriveIndexAction;
 
     fn handle_action(&mut self, action: &DriveIndexAction, ctx: &mut ViewContext<Self>) {
-        // Block anonymous users from performing team actions
-        if self.auth_state.is_anonymous_or_logged_out() && action.blocked_for_anonymous_user() {
-            return;
-        }
-
         match action {
             DriveIndexAction::CreateObject {
                 object_type,

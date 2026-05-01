@@ -17,7 +17,7 @@ use crate::{
         skills::SkillManager,
         AIRequestUsageModel,
     },
-    auth::auth_manager::AuthManager,
+    auth::{auth_manager::AuthManager, AuthStateProvider},
     cloud_object::model::persistence::CloudModel,
     context_chips::prompt::Prompt,
     experiments,
