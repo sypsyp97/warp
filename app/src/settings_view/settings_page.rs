@@ -9,16 +9,12 @@ use super::{
     about_page::AboutPageView,
     ai_page::{AISettingsPageAction, AISettingsPageView},
     appearance_page::AppearanceSettingsPageView,
-    billing_and_usage_page::BillingAndUsagePageView,
     code_page::CodeSettingsPageView,
     environments_page::EnvironmentsPageView,
     features_page::FeaturesPageView,
     keybindings::KeybindingsView,
     mcp_servers_page::MCPServersSettingsPageView,
     privacy_page::PrivacyPageView,
-    show_blocks_view::ShowBlocksView,
-    teams_page::TeamsPageView,
-    warp_drive_page::WarpDriveSettingsPageView,
     warpify_page::WarpifyPageView,
     SettingsSection,
 };
@@ -104,19 +100,14 @@ pub trait SettingsPageMeta {
 pub enum SettingsPageViewHandle {
     Appearance(ViewHandle<AppearanceSettingsPageView>),
     Features(ViewHandle<FeaturesPageView>),
-    SharedBlocks(ViewHandle<ShowBlocksView>),
     Keybindings(ViewHandle<KeybindingsView>),
     About(ViewHandle<AboutPageView>),
     Code(ViewHandle<CodeSettingsPageView>),
-    Teams(ViewHandle<TeamsPageView>),
-    OzCloudAPIKeys(ViewHandle<super::platform_page::PlatformPageView>),
     Privacy(ViewHandle<PrivacyPageView>),
     Warpify(ViewHandle<WarpifyPageView>),
     AI(ViewHandle<AISettingsPageView>),
     CloudEnvironments(ViewHandle<EnvironmentsPageView>),
-    BillingAndUsage(ViewHandle<BillingAndUsagePageView>),
     MCPServers(ViewHandle<MCPServersSettingsPageView>),
-    WarpDrive(ViewHandle<WarpDriveSettingsPageView>),
 }
 
 impl SettingsPageViewHandle {
@@ -125,19 +116,14 @@ impl SettingsPageViewHandle {
         match self {
             Appearance(view_handle) => ChildView::new(view_handle).finish(),
             Features(view_handle) => ChildView::new(view_handle).finish(),
-            SharedBlocks(view_handle) => ChildView::new(view_handle).finish(),
             Keybindings(view_handle) => ChildView::new(view_handle).finish(),
             About(view_handle) => ChildView::new(view_handle).finish(),
             Code(view_handle) => ChildView::new(view_handle).finish(),
-            Teams(view_handle) => ChildView::new(view_handle).finish(),
-            OzCloudAPIKeys(view_handle) => ChildView::new(view_handle).finish(),
             Privacy(view_handle) => ChildView::new(view_handle).finish(),
             Warpify(view_handle) => ChildView::new(view_handle).finish(),
             AI(view_handle) => ChildView::new(view_handle).finish(),
             CloudEnvironments(view_handle) => ChildView::new(view_handle).finish(),
-            BillingAndUsage(view_handle) => ChildView::new(view_handle).finish(),
             MCPServers(view_handle) => ChildView::new(view_handle).finish(),
-            WarpDrive(view_handle) => ChildView::new(view_handle).finish(),
         }
     }
 }

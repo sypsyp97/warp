@@ -73,11 +73,6 @@ impl AuthManager {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct PersistedCurrentUserInformation {
-    pub email: String,
-}
-
 impl Entity for AuthManager {
     type Event = AuthManagerEvent;
 }

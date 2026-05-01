@@ -26,8 +26,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use channel_versions::{Changelog, VersionInfo};
-use warpui::accessibility::AccessibilityContent;
-use warpui::{AppContext, Entity, ModelContext, SingletonEntity};
+use warpui::{AppContext, Entity, SingletonEntity};
 
 use crate::server::server_api::ServerApi;
 
@@ -49,21 +48,9 @@ pub mod linux {
 pub enum AutoupdateStage {
     #[default]
     NoUpdateAvailable,
-    CheckingForUpdate,
-    DownloadingUpdate,
-    UnableToUpdateToNewVersion {
-        new_version: VersionInfo,
-    },
     UpdateReady {
         new_version: VersionInfo,
         update_id: String,
-    },
-    Updating {
-        new_version: VersionInfo,
-        update_id: String,
-    },
-    UnableToLaunchNewVersion {
-        new_version: VersionInfo,
     },
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     UpdatedPendingRestart {
@@ -82,10 +69,7 @@ impl AutoupdateStage {
     pub fn available_new_version(&self) -> Option<&VersionInfo> {
         match self {
             AutoupdateStage::UpdateReady { new_version, .. }
-            | AutoupdateStage::Updating { new_version, .. }
-            | AutoupdateStage::UpdatedPendingRestart { new_version }
-            | AutoupdateStage::UnableToLaunchNewVersion { new_version }
-            | AutoupdateStage::UnableToUpdateToNewVersion { new_version } => Some(new_version),
+            | AutoupdateStage::UpdatedPendingRestart { new_version } => Some(new_version),
             _ => None,
         }
     }
@@ -109,12 +93,6 @@ impl AutoupdateState {
     pub fn register(ctx: &mut AppContext, server_api: Arc<ServerApi>) {
         ctx.add_singleton_model(move |_ctx| Self::new(server_api));
     }
-
-    /// Stub: the slim fork never checks for updates.
-    pub fn manually_check_for_update(&mut self, _ctx: &mut ModelContext<Self>) {}
-
-    /// Stub: the slim fork never checks for updates.
-    pub fn maybe_daily_check_for_update(&mut self, _ctx: &mut ModelContext<Self>) {}
 }
 
 /// The set of events that are emitted from the AutoupdateState model.
@@ -141,27 +119,12 @@ pub enum UpdateReady {
         new_version: VersionInfo,
         update_id: String,
     },
-    CanDownload {
-        new_version: VersionInfo,
-        update_id: String,
-    },
-    No,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum RequestType {
-    ManualCheck,
     Poll,
-    DailyCheck,
-}
-
-/// Stub: never produces accessibility content because we never check for updates.
-pub fn accessibility_content(
-    _update_available: &Result<UpdateReady>,
-    _request_type: RequestType,
-) -> Option<AccessibilityContent> {
-    None
 }
 
 pub fn get_update_state(_app: &AppContext) -> AutoupdateStage {

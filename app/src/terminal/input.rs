@@ -3130,7 +3130,8 @@ impl Input {
         let buy_credits_banner = ctx.add_typed_action_view(BuyCreditsBanner::new);
         ctx.subscribe_to_view(&buy_credits_banner, |me, _, event, ctx| match event {
             BuyCreditsBannerEvent::OpenBillingAndUsage => {
-                ctx.emit(Event::OpenSettings(SettingsSection::BillingAndUsage));
+                // Slim fork: BillingAndUsage page is removed; route to Privacy instead.
+                ctx.emit(Event::OpenSettings(SettingsSection::Privacy));
             }
             BuyCreditsBannerEvent::RefocusInput => {
                 ctx.focus(&me.editor);
@@ -5245,7 +5246,8 @@ impl Input {
     ) {
         match prompt_alert {
             PromptAlertEvent::OpenBillingAndUsagePage => {
-                ctx.emit(Event::OpenSettings(SettingsSection::BillingAndUsage));
+                // Slim fork: BillingAndUsage page is removed; route to Privacy instead.
+                ctx.emit(Event::OpenSettings(SettingsSection::Privacy));
             }
             PromptAlertEvent::OpenPrivacyPage => {
                 ctx.emit(Event::OpenSettings(SettingsSection::Privacy));
@@ -13771,7 +13773,8 @@ impl Input {
     ) {
         match event {
             PromptSuggestionsEvent::OpenBillingAndUsagePage => {
-                ctx.emit(Event::OpenSettings(SettingsSection::BillingAndUsage))
+                // Slim fork: BillingAndUsage page is removed; route to Privacy instead.
+                ctx.emit(Event::OpenSettings(SettingsSection::Privacy))
             }
             PromptSuggestionsEvent::OpenPrivacyPage => {
                 ctx.emit(Event::OpenSettings(SettingsSection::Privacy))

@@ -30,7 +30,6 @@ use crate::pricing::{PricingInfoModel, PricingInfoModelEvent};
 use crate::send_telemetry_from_ctx;
 use crate::server::ids::ServerId;
 use crate::server::telemetry::{OutOfCreditsBannerAction, TelemetryEvent};
-use crate::settings_view::create_discount_badge;
 use crate::view_components::Dropdown;
 use crate::workspaces::user_workspaces::{UserWorkspaces, UserWorkspacesEvent};
 use warp_graphql::error::BudgetExceededError;
@@ -347,7 +346,10 @@ impl BuyCreditsBanner {
                             .with_color(text_color.into())
                             .finish();
 
-                            let discount_badge = create_discount_badge(discount_percent, appearance);
+                            // Slim fork: discount badges only appeared in the
+                            // (dead) buy-credits flow; render nothing.
+                            let _ = discount_percent;
+                            let discount_badge = warpui::elements::Empty::new().finish();
 
                             Flex::row()
                                 .with_cross_axis_alignment(CrossAxisAlignment::Center)

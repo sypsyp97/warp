@@ -404,9 +404,10 @@ impl View for PromptAlertView {
 
         if suggest_buy_credits {
             text_fragments.push(FormattedTextFragment::plain_text("  "));
+            // Slim fork: BillingAndUsage page is removed; route to Privacy instead.
             text_fragments.push(FormattedTextFragment::hyperlink_action(
                 "Add credits",
-                WorkspaceAction::ShowSettingsPage(SettingsSection::BillingAndUsage),
+                WorkspaceAction::ShowSettingsPage(SettingsSection::Privacy),
             ));
         } else {
             self.action_hyperlink(&state, &mut text_fragments, app);

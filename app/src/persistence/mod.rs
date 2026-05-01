@@ -37,7 +37,6 @@ use warpui::{AppContext, Entity, SingletonEntity};
 use crate::ai::blocklist::PersistedAIInput;
 use crate::ai::mcp::TemplatableMCPServerInstallation;
 use crate::app_state::AppState;
-use crate::auth::auth_manager::PersistedCurrentUserInformation;
 use crate::cloud_object::model::actions::ObjectAction;
 use crate::cloud_object::model::generic_string_model::CloudStringObject;
 
@@ -325,9 +324,6 @@ pub enum ModelEvent {
         conversation_ids: Vec<String>,
     },
 
-    UpsertCurrentUserInformation {
-        user_information: PersistedCurrentUserInformation,
-    },
     UpsertCodebaseIndexMetadata {
         index_metadata: Box<CodeWorkspaceMetadata>,
     },

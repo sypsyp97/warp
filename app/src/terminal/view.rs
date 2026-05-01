@@ -24184,7 +24184,6 @@ impl TypedActionView for TerminalView {
             | StartFileDropTarget
             | StopFileDropTarget
             | RunNativeShellCompletions { .. }
-            | OpenTeamSettingsPage
             | SelectAgenticSuggestion(_)
             | HideTelemetryBannerPermanently
             | GenerateCodebaseIndex
@@ -24824,9 +24823,6 @@ impl TypedActionView for TerminalView {
                     results_tx: results_tx.clone(),
                 });
             }
-            OpenTeamSettingsPage => {
-                ctx.emit(Event::OpenSettings(SettingsSection::Teams));
-            }
             SetMarkedText {
                 marked_text,
                 selected_range,
@@ -25064,7 +25060,8 @@ impl TypedActionView for TerminalView {
                 });
             }
             OpenBillingAndUsagePane => {
-                ctx.emit(Event::OpenSettings(SettingsSection::BillingAndUsage));
+                // Slim fork: BillingAndUsage page is removed; route to Privacy instead.
+                ctx.emit(Event::OpenSettings(SettingsSection::Privacy));
             }
             OpenAddRulePane => {
                 ctx.emit(Event::OpenAddRulePane);

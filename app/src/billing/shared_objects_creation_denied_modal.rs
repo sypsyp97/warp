@@ -184,7 +184,7 @@ impl SharedObjectsCreationDeniedModal {
             SharedObjectsCreationDeniedBodyEvent::ManageBilling => match self.team_uid {
                 // If team_uid is set, then open up the manage billing page for the team
                 // directly. The actual logic that opens the billing portal url in the
-                // browser is in the handle_model_event method of TeamsPageView.
+                // browser previously lived in the (now-removed) TeamsPageView.
                 Some(team_uid) => {
                     UserWorkspaces::handle(ctx).update(ctx, move |user_workspaces, ctx| {
                         user_workspaces.generate_stripe_billing_portal_link(team_uid, ctx);

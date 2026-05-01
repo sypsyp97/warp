@@ -40,8 +40,8 @@ use super::block_list::{
     upsert_ai_query,
 };
 use super::model::{
-    self, ActiveMCPServer, CurrentUserInformation, MCPEnvironmentVariables, NewActiveMCPServer,
-    NewApp, NewCommand, NewFolder, NewNotebook, NewServerExperiment, NewTab, NewTeam, NewWindow,
+    self, ActiveMCPServer, MCPEnvironmentVariables, NewActiveMCPServer, NewApp, NewCommand,
+    NewFolder, NewNotebook, NewServerExperiment, NewTab, NewTeam, NewWindow,
     NewWorkspace, NewWorkspaceMetadata, NewWorkspaceTeam, ObjectMetadata, ObjectPermissions,
     Project, Tab, Window, WorkspaceMetadata as WorkspaceMetadataModel, AI_DOCUMENT_PANE_KIND,
     AI_FACT_PANE_KIND, CODE_PANE_KIND, ENV_VAR_COLLECTION_PANE_KIND,
@@ -75,7 +75,6 @@ use crate::app_state::{
     EnvVarCollectionPaneSnapshot, LeftPanelSnapshot, RightPanelSnapshot, SettingsPaneSnapshot,
     WorkflowPaneSnapshot,
 };
-use crate::auth::auth_manager::PersistedCurrentUserInformation;
 use crate::auth::auth_state::AuthStateProvider;
 use crate::auth::UserUid;
 use crate::cloud_object::model::actions::{ObjectAction, ObjectActionSubtype};
@@ -637,10 +636,6 @@ fn handle_model_event(event: ModelEvent, connection: &mut SqliteConnection) -> a
             delete_agent_conversations(connection, conversation_ids)
                 .map_err(anyhow::Error::from)
                 .context("error deleting multi-agent conversation")
-        }
-        ModelEvent::UpsertCurrentUserInformation { user_information } => {
-            upsert_current_user_information(connection, user_information)
-                .context("error upserting user information")
         }
         ModelEvent::UpsertMCPServerEnvironmentVariables {
             mcp_server_uuid,
@@ -3488,23 +3483,6 @@ fn record_time_of_next_refresh(
         diesel::delete(cloud_objects_refreshes).execute(conn)?;
         diesel::insert_into(cloud_objects_refreshes)
             .values(refresh)
-            .execute(conn)?;
-        Ok(())
-    })
-}
-
-fn upsert_current_user_information(
-    conn: &mut SqliteConnection,
-    user_information: PersistedCurrentUserInformation,
-) -> Result<(), Error> {
-    conn.transaction::<(), Error, _>(|conn| {
-        diesel::delete(schema::current_user_information::dsl::current_user_information)
-            .execute(conn)?;
-
-        diesel::insert_into(schema::current_user_information::dsl::current_user_information)
-            .values(CurrentUserInformation {
-                email: user_information.email,
-            })
             .execute(conn)?;
         Ok(())
     })

@@ -303,7 +303,6 @@ pub enum DriveIndexAction {
     },
     ClearDropTarget,
     ToggleSectionCollapsed(DriveIndexSection),
-    OpenTeamSettingsPage,
     RunObject(CloudObjectTypeAndId),
     OpenWorkflowModalWithNew {
         space: Space,
@@ -436,7 +435,6 @@ pub enum DriveIndexEvent {
     },
     DuplicateObject(CloudObjectTypeAndId),
     ExportObject(CloudObjectTypeAndId),
-    OpenTeamSettingsPage,
     OpenImportModal {
         space: Space,
         initial_folder_id: Option<SyncId>,
@@ -2133,9 +2131,8 @@ impl DriveIndex {
                 .with_centered_text_label(button_text)
                 .build()
                 .with_cursor(Cursor::PointingHand)
-                .on_click(move |ctx, _, _| {
-                    ctx.dispatch_typed_action(DriveIndexAction::OpenTeamSettingsPage)
-                })
+                // Slim fork: team-settings page removed; no-op click.
+                .on_click(move |_, _, _| {})
                 .finish()
         } else {
             appearance
@@ -2155,9 +2152,8 @@ impl DriveIndex {
                 .with_centered_text_label(button_text)
                 .build()
                 .with_cursor(Cursor::PointingHand)
-                .on_click(move |ctx, _, _| {
-                    ctx.dispatch_typed_action(DriveIndexAction::OpenTeamSettingsPage)
-                })
+                // Slim fork: team-settings page removed; no-op click.
+                .on_click(move |_, _, _| {})
                 .finish()
         };
 
@@ -2204,9 +2200,8 @@ impl DriveIndex {
                 .with_centered_text_label(text.to_owned())
                 .build()
                 .with_cursor(Cursor::PointingHand)
-                .on_click(move |ctx, _, _| {
-                    ctx.dispatch_typed_action(DriveIndexAction::OpenTeamSettingsPage)
-                })
+                // Slim fork: team-settings page removed; no-op click.
+                .on_click(move |_, _, _| {})
                 .finish(),
         )
         .with_margin_top(16.)
@@ -3126,9 +3121,8 @@ impl DriveIndex {
             Align::new(
                 button
                     .build()
-                    .on_click(move |ctx, _, _| {
-                        ctx.dispatch_typed_action(DriveIndexAction::OpenTeamSettingsPage)
-                    })
+                    // Slim fork: team-settings page removed; no-op click.
+                    .on_click(move |_, _, _| {})
                     .finish(),
             )
             .finish(),
@@ -5140,9 +5134,6 @@ impl TypedActionView for DriveIndex {
             DriveIndexAction::ClearDropTarget => self.clear_drop_target(ctx),
             DriveIndexAction::ToggleSectionCollapsed(section) => {
                 self.toggle_section_collapse(section, ctx);
-            }
-            DriveIndexAction::OpenTeamSettingsPage => {
-                ctx.emit(DriveIndexEvent::OpenTeamSettingsPage);
             }
             DriveIndexAction::RunObject(id) => {
                 if !matches!(self.index_variant, DriveIndexVariant::Trash) {
