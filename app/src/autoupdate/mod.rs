@@ -2,15 +2,16 @@
 //!
 //! The slim fork does not talk to Warp's release servers, download installers,
 //! or relaunch into a new version. This module keeps every public type and
-//! function signature the rest of the crate references so the ~30 external
-//! call sites continue to compile, but every body is a no-op:
+//! function signature the rest of the crate references so the remaining
+//! external call sites continue to compile, but every body is a no-op:
 //!
 //! * `get_update_state` always reports `AutoupdateStage::NoUpdateAvailable`.
-//! * `apply_update` returns `Ok(ReadyForRelaunch::No)` — callers match on
-//!   `ReadyForRelaunch::Yes`, so the relaunch path is short-circuited.
 //! * `is_incoming_version_past_current` always returns `false`.
 //! * `AutoupdateState::manually_check_for_update` /
 //!   `maybe_daily_check_for_update` do nothing; no events are ever emitted.
+//! * `initiate_relaunch_for_update` is a no-op; the only remaining caller is
+//!   `terminal/view.rs` reacting to a `ModelEvent::FinishUpdate` that the slim
+//!   fork never fires.
 //! * The `linux::UpdateMethod::detect()` shim still exists for `debug_dump.rs`.
 //!
 //! All platform-specific logic (`linux.rs`, `mac.rs`, `windows.rs`), the
@@ -26,10 +27,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use channel_versions::{Changelog, VersionInfo};
 use warpui::accessibility::AccessibilityContent;
-use warpui::{AppContext, Entity, ModelContext, SingletonEntity, ViewContext};
+use warpui::{AppContext, Entity, ModelContext, SingletonEntity};
 
 use crate::server::server_api::ServerApi;
-use crate::workspace::Workspace;
 
 /// Inline stub for `crate::autoupdate::linux::UpdateMethod::detect()`, which is
 /// still referenced from `app/src/debug_dump.rs` on Linux.
@@ -148,14 +148,6 @@ pub enum UpdateReady {
     No,
 }
 
-/// Whether or not we're ready to relaunch the app after the user requests that
-/// we apply an update.
-#[allow(dead_code)]
-pub enum ReadyForRelaunch {
-    Yes,
-    No,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum RequestType {
@@ -176,19 +168,8 @@ pub fn get_update_state(_app: &AppContext) -> AutoupdateStage {
     AutoupdateStage::NoUpdateAvailable
 }
 
-/// Stub: returns `Ok(ReadyForRelaunch::No)` so callers short-circuit the
-/// relaunch path (workspace/view.rs:15302 matches on `ReadyForRelaunch::Yes`).
-pub fn apply_update(
-    _initiating_workspace: &mut Workspace,
-    _ctx: &mut ViewContext<Workspace>,
-) -> Result<ReadyForRelaunch> {
-    Ok(ReadyForRelaunch::No)
-}
-
 /// Stub: no relaunch ever happens.
 pub fn initiate_relaunch_for_update(_app: &mut AppContext) {}
-
-pub fn manually_download_new_version(_ctx: &mut AppContext) {}
 
 #[derive(Clone, Copy, Default)]
 pub struct RelaunchModel;

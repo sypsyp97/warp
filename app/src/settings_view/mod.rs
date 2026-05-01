@@ -159,7 +159,6 @@ pub(super) fn editor_text_colors(appearance: &Appearance) -> TextColors {
 pub enum SettingsViewEvent {
     Pane(PaneEvent),
     StartResize,
-    CheckForUpdate,
     LaunchNetworkLogging,
     OpenWarpDrive,
     SignupAnonymousUser,
@@ -1568,12 +1567,8 @@ impl SettingsView {
         event: &MainSettingsPageEvent,
         ctx: &mut ViewContext<Self>,
     ) {
-        match event {
-            MainSettingsPageEvent::CheckForUpdate => ctx.emit(SettingsViewEvent::CheckForUpdate),
-            MainSettingsPageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
-            }
-            _ => (),
+        if let MainSettingsPageEvent::SignupAnonymousUser = event {
+            ctx.emit(SettingsViewEvent::SignupAnonymousUser);
         }
     }
 

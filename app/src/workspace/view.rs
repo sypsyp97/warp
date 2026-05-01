@@ -10203,12 +10203,6 @@ impl Workspace {
         ctx.notify();
     }
 
-    pub fn open_autoupdate_failure_link(&mut self, ctx: &mut ViewContext<Self>) {
-        ctx.open_url(
-            "https://docs.warp.dev/support-and-community/troubleshooting-and-support/updating-warp",
-        );
-    }
-
     pub fn add_terminal_tab(&mut self, hide_homepage: bool, ctx: &mut ViewContext<Self>) {
         self.add_new_session_tab_with_default_mode(
             NewSessionSource::Tab,
@@ -12397,12 +12391,6 @@ impl Workspace {
         }
     }
 
-    fn manual_check_for_update(&self, ctx: &mut ViewContext<Self>) {
-        AutoupdateState::handle(ctx).update(ctx, |autoupdate_state, ctx| {
-            autoupdate_state.manually_check_for_update(ctx);
-        });
-    }
-
     pub fn is_theme_creator_modal_open(&self) -> bool {
         self.current_workspace_state.is_theme_creator_modal_open
     }
@@ -12449,9 +12437,6 @@ impl Workspace {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            SettingsViewEvent::CheckForUpdate => {
-                self.manual_check_for_update(ctx);
-            }
             SettingsViewEvent::LaunchNetworkLogging => {
                 self.open_network_log_pane(ctx);
             }
@@ -14999,18 +14984,6 @@ impl Workspace {
         self.current_workspace_state.is_theme_chooser_open = false;
         self.previous_theme = None;
         ctx.notify();
-    }
-
-    fn apply_update(&mut self, ctx: &mut ViewContext<Self>) {
-        if let Ok(autoupdate::ReadyForRelaunch::Yes) = autoupdate::apply_update(self, ctx) {
-            autoupdate::initiate_relaunch_for_update(ctx);
-        }
-        self.close_tab_bar_overflow_menu(ctx);
-    }
-
-    fn download_new_version(&mut self, ctx: &mut ViewContext<Self>) {
-        autoupdate::manually_download_new_version(ctx);
-        self.close_tab_bar_overflow_menu(ctx);
     }
 
     fn active_session_ps1_grid_info(&self, app: &AppContext) -> Option<(BlockGrid, SizeInfo)> {
@@ -19380,8 +19353,6 @@ impl TypedActionView for Workspace {
                 self.close_new_session_dropdown_menu(ctx);
                 self.open_folder_picker_for_worktree_submenu(ctx);
             }
-            AutoupdateFailureLink => self.open_autoupdate_failure_link(ctx),
-            ApplyUpdate => self.apply_update(ctx),
             LogOut => {
                 // Need to dispatch global action, or else we will not be able to retrieve
                 // the currently active session in the log out modal.
@@ -19391,7 +19362,6 @@ impl TypedActionView for Workspace {
                 self.export_all_warp_drive_objects(ctx);
             }
             CopyVersion(version) => self.copy_version(version, ctx),
-            DownloadNewVersion => self.download_new_version(ctx),
             ConfigureKeybindingSettings { keybinding_name } => {
                 self.show_keyboard_settings(keybinding_name.as_deref(), ctx)
             }
@@ -19434,7 +19404,6 @@ impl TypedActionView for Workspace {
             ChangeCursor(cursor) => self.change_cursor(*cursor, ctx),
             ToggleErrorUnderlining => self.toggle_error_underlining(ctx),
             ToggleSyntaxHighlighting => self.toggle_syntax_highlighting(ctx),
-            CheckForUpdate => self.manual_check_for_update(ctx),
             SetA11yVerbosityLevel(verbosity) => self.set_a11y_verbosity(*verbosity, ctx),
             ToggleNotifications => self.toggle_notifications(ctx),
             ToggleTabColor { color, tab_index } => self.toggle_tab_color(*tab_index, *color, ctx),

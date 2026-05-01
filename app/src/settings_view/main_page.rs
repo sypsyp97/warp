@@ -50,7 +50,6 @@ pub fn handle_experiment_change(_app: &mut AppContext) {
 pub enum MainPageAction {
     Relaunch,
     DownloadUpdate,
-    CheckForUpdate,
     ToggleSettingsSync,
     Upgrade {
         team_uid: Option<ServerId>,
@@ -66,7 +65,6 @@ pub enum MainPageAction {
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub enum MainSettingsPageEvent {
-    CheckForUpdate,
     OpenWarpDrive,
     SignupAnonymousUser,
 }
