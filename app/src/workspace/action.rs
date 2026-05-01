@@ -34,7 +34,6 @@ use ui_components::lightbox;
 use warpui::accessibility::AccessibilityVerbosity;
 use warpui::geometry::rect::RectF;
 use warpui::geometry::vector::Vector2F;
-use warpui::platform::Cursor;
 use warpui::{EntityId, WeakViewHandle, WindowId};
 
 use super::global_actions::{ForkFromExchange, ForkedConversationDestination};
@@ -126,7 +125,6 @@ pub enum WorkspaceAction {
     },
     TabHoverWidthEnd,
     ToggleTabBarOverflowMenu,
-    ToggleWelcomeTips,
     CloseTab(usize),
     CloseActiveTab,
     CloseOtherTabs(usize),
@@ -185,7 +183,6 @@ pub enum WorkspaceAction {
         mode: PaletteMode,
         source: PaletteSource,
     },
-    ShowUpgrade,
     ShowReferralSettingsPage,
     JoinSlack,
     ViewUserDocs,
@@ -195,10 +192,7 @@ pub enum WorkspaceAction {
     /// Open the log directory in the system file explorer with the current log file selected.
     #[cfg(not(target_family = "wasm"))]
     ViewLogs,
-    ChangeCursor(Cursor),
     ToggleBlockSnackbar,
-    ToggleErrorUnderlining,
-    ToggleSyntaxHighlighting,
     ExportAllWarpDriveObjects,
     SetA11yVerbosityLevel(AccessibilityVerbosity),
     ToggleNotifications,
@@ -228,8 +222,6 @@ pub enum WorkspaceAction {
     CreatePersonalAIPrompt,
     CreateTeamAIPrompt,
     ToggleMouseReporting,
-    ToggleScrollReporting,
-    ToggleFocusReporting,
     StartTabDrag,
     DragTab {
         tab_index: usize,
@@ -244,7 +236,6 @@ pub enum WorkspaceAction {
         target_insertion_index: usize,
     },
     DropTab,
-    FinalizeDropTab,
     /// Toggles the left panel. In Code Mode V1 this toggles Warp Drive.
     /// In Code Mode V2 this toggles the left panel which contains both the project explorer and
     /// Warp Drive. This happens as explicit action from the user.
@@ -283,7 +274,6 @@ pub enum WorkspaceAction {
     /// Stops the heap profiler (if one is running) and writes the profiling
     /// data to disk.
     DumpHeapProfile,
-    ShowAIAssistantWarmWelcome,
     ClickedAIAssistantWarmWelcome,
     /// An action to open a new window with a view hierarchy debugger.
     OpenViewTreeDebugWindow,
@@ -301,8 +291,6 @@ pub enum WorkspaceAction {
     OpenPromptEditor {
         open_source: PromptEditorOpenSource,
     },
-    OpenAgentToolbarEditor,
-    OpenCLIAgentToolbarEditor,
     OpenHeaderToolbarEditor,
     ShowHeaderToolbarContextMenu {
         position: Vector2F,
@@ -393,14 +381,10 @@ pub enum WorkspaceAction {
     },
     OpenAIFactCollection,
     OpenMCPServerCollection,
-    /// Open the Environment Management pane in Create mode.
-    OpenEnvironmentManagementPane,
     ToggleAIDocumentPane {
         document_id: AIDocumentId,
         document_version: AIDocumentVersion,
     },
-    /// Closes all visible AI document panes in the active pane group.
-    HideAIDocumentPanes,
     /// Closes any other ai document panes in the active pane group, and opens the specified document_id.
     OpenAIDocumentPane {
         document_id: AIDocumentId,
@@ -470,8 +454,6 @@ pub enum WorkspaceAction {
     ContinueConversationLocally {
         conversation_id: AIConversationId,
     },
-    /// Insert the /fork slash command into the active terminal's input.
-    InsertForkSlashCommand,
     /// Summarize the active AI conversation in the focused pane.
     SummarizeAIConversation {
         prompt: Option<String>,
@@ -610,8 +592,6 @@ pub enum WorkspaceAction {
     /// Start the HOA onboarding flow (for debugging)
     #[cfg(debug_assertions)]
     ShowHoaOnboardingFlow,
-    /// Open the "New worktree" modal for creating a reusable worktree tab config.
-    OpenNewWorktreeModal,
     /// Open the native folder picker for the repo field in the new-worktree modal.
     OpenNewWorktreeRepoPicker,
     /// Create a new worktree in the given repo using the default worktree tab config.
@@ -731,17 +711,13 @@ impl WorkspaceAction {
             | ResetZoom
             | OpenPalette { .. }
             | TogglePalette { mode: _, source: _ }
-            | ShowUpgrade
             | ShowReferralSettingsPage
             | JoinSlack
             | ViewUserDocs
             | ViewLatestChangelog
             | ViewPrivacyPolicy
             | SendFeedback
-            | ChangeCursor(_)
             | ToggleBlockSnackbar
-            | ToggleErrorUnderlining
-            | ToggleSyntaxHighlighting
             | OpenLaunchConfigSaveModal
             | ToggleTabRightClickMenu { .. }
             | ToggleVerticalTabsPaneContextMenu { .. }
@@ -761,8 +737,6 @@ impl WorkspaceAction {
             | ToggleKeybindingsPage
             | ShowCommandSearch(_)
             | ToggleMouseReporting
-            | ToggleScrollReporting
-            | ToggleFocusReporting
             | ImportToPersonalDrive
             | ImportToTeamDrive
             | CreatePersonalNotebook
@@ -780,7 +754,6 @@ impl WorkspaceAction {
             | HandoffPendingTransfer { .. }
             | ReverseHandoff { .. }
             | StartTabDrag
-            | FinalizeDropTab
             | ToggleLeftPanel
             | ToggleWarpDrive
             | OpenWarpDrive
@@ -796,10 +769,8 @@ impl WorkspaceAction {
             | ToggleVerticalTabsShowPrLink
             | ToggleVerticalTabsShowDiffStats
             | ToggleVerticalTabsShowDetailsOnHover
-            | ToggleWelcomeTips
             | CopyTextToClipboard(_)
             | OpenTabConfigRepoPicker { .. }
-            | OpenNewWorktreeModal
             | OpenNewWorktreeRepoPicker
             | OpenWorktreeInRepo { .. }
             | OpenWorktreeAddRepoPicker
@@ -807,7 +778,6 @@ impl WorkspaceAction {
             | Panic
             | DumpHeapProfile
             | OpenViewTreeDebugWindow
-            | ShowAIAssistantWarmWelcome
             | ClickedAIAssistantWarmWelcome
             | DismissAIAssistantWarmWelcome
             | DismissWorkspaceBanner(..)
@@ -817,8 +787,6 @@ impl WorkspaceAction {
             | HandleConflictingWorkflow(_)
             | HandleConflictingEnvVarCollection(_)
             | OpenPromptEditor { .. }
-            | OpenAgentToolbarEditor
-            | OpenCLIAgentToolbarEditor
             | OpenHeaderToolbarEditor
             | ShowHeaderToolbarContextMenu { .. }
             | Reauth
@@ -841,7 +809,6 @@ impl WorkspaceAction {
             | RunAISuggestedCommand { .. }
             | RunCommand { .. }
             | InsertInInput { .. }
-            | InsertForkSlashCommand
             | QueuePromptForConversation { .. }
             | UndoTrash(_)
             | OpenFilePath { .. }
@@ -868,7 +835,6 @@ impl WorkspaceAction {
             | ToggleAgentManagementView
             | ViewAgentRunsForEnvironment { .. }
             | ToggleAIDocumentPane { .. }
-            | HideAIDocumentPanes
             | OpenAIDocumentPane { .. }
             | ShowRewindConfirmationDialog { .. }
             | ExecuteRewindAIConversation { .. }
@@ -913,7 +879,6 @@ impl WorkspaceAction {
             FileRenamed { .. } => false, // File rename doesn't change workspace state
             #[cfg(feature = "local_fs")]
             FileDeleted { .. } => false, // File deletion doesn't change workspace state
-            OpenEnvironmentManagementPane => false,
             #[cfg(target_os = "linux")]
             DismissWaylandCrashRecoveryBannerAndOpenLink => false,
             #[cfg(target_family = "wasm")]

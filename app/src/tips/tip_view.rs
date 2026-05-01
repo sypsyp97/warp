@@ -1,8 +1,8 @@
 use pathfinder_geometry::vector::vec2f;
 use warpui::elements::{
-    Align, ChildAnchor, ClippedScrollStateHandle, ClippedScrollable, DispatchEventResult,
-    EventHandler, Hoverable, Icon, MouseStateHandle, OffsetPositioning, PositionedElementAnchor,
-    PositionedElementOffsetBounds, Radius, ScrollbarWidth, Stack,
+    Align, ChildAnchor, ClippedScrollStateHandle, ClippedScrollable, Hoverable, Icon,
+    MouseStateHandle, OffsetPositioning, PositionedElementAnchor, PositionedElementOffsetBounds,
+    Radius, ScrollbarWidth, Stack,
 };
 use warpui::platform::Cursor;
 use warpui::ui_components::button::ButtonVariant;
@@ -17,12 +17,11 @@ use warpui::{
     AppContext, Entity, TypedActionView, View,
 };
 use warpui::{keymap::FixedBinding, ViewContext};
-use warpui::{Action, BlurContext, EntityId, ModelHandle, SingletonEntity, WindowId};
+use warpui::{BlurContext, ModelHandle, SingletonEntity};
 
 use crate::appearance::Appearance;
 use crate::resource_center::{Tip, TipAction, TipsCompleted};
 use crate::themes::theme::{Blend, Fill};
-use crate::util::bindings::trigger_to_keystroke;
 
 use super::WELCOME_TIP_FEATURE_LENGTH;
 
@@ -40,7 +39,6 @@ const MODAL_WIDTH: f32 = 250.;
 struct TipItem {
     pub title: String,
     pub description: String,
-    pub editable_binding_name: String,
     pub shortcut: Option<Keystroke>,
     pub tip_feature: Tip,
 }
@@ -52,14 +50,12 @@ impl TipItem {
         feature: TipAction,
         ctx: &mut AppContext,
     ) -> Self {
-        let editable_binding_name = feature.editable_binding_name().to_string();
         let shortcut = feature.keyboard_shortcut(ctx);
         let tip_feature = Tip::Action(feature);
 
         Self {
             title,
             description,
-            editable_binding_name,
             shortcut,
             tip_feature,
         }
@@ -71,7 +67,6 @@ pub struct TipsView {
     tip_items: Vec<TipItem>,
     button_mouse_states: MouseStateHandles,
     parent_position_id: String,
-    action_target: ModelHandle<ActionTarget>,
     clipped_scroll_state: ClippedScrollStateHandle,
 }
 
@@ -88,10 +83,6 @@ pub enum TipsAction {
     Close,
     /// Action taken to dismiss the tips (and not show them again).
     DismissTips,
-    /// Action taken to perform the action associated with a tip
-    Click { index: usize },
-    /// Keydown on tips view.
-    KeyDown { keystroke: Keystroke },
 }
 
 pub fn init(app: &mut AppContext) {
@@ -162,9 +153,6 @@ impl TipsView {
             ),
         ];
 
-        // Initialize the action target cache. This will be updated when the tip menu is opened
-        let action_target = ctx.add_model(|_| ActionTarget::None);
-
         let button_mouse_states = MouseStateHandles {
             tip_handles: tip_items.iter().map(|_| Default::default()).collect(),
             ..Default::default()
@@ -173,37 +161,8 @@ impl TipsView {
             tips_completed,
             tip_items,
             button_mouse_states,
-            action_target,
             parent_position_id,
             clipped_scroll_state: Default::default(),
-        }
-    }
-
-    pub fn set_action_target(
-        &mut self,
-        window_id: WindowId,
-        input_id: Option<EntityId>,
-        ctx: &mut ViewContext<Self>,
-    ) {
-        self.action_target.update(ctx, |action_target, ctx| {
-            *action_target = ActionTarget::View {
-                window_id,
-                input_id,
-            };
-            ctx.notify();
-        });
-    }
-
-    fn dispatch_tip_action(&self, action: &dyn Action, ctx: &mut ViewContext<Self>) {
-        let (window_id, input_id) = match self.action_target.as_ref(ctx) {
-            ActionTarget::View {
-                window_id,
-                input_id,
-            } => (*window_id, *input_id),
-            ActionTarget::None => return,
-        };
-        if let Some(input_id) = input_id {
-            ctx.dispatch_typed_action_for_view(window_id, input_id, action);
         }
     }
 
@@ -351,9 +310,6 @@ impl TipsView {
                 }
             },
         )
-        .on_click(move |ctx, _, _| {
-            ctx.dispatch_typed_action(TipsAction::Click { index });
-        })
         .with_cursor(Cursor::PointingHand)
         .finish()
     }
@@ -426,18 +382,9 @@ impl TipsView {
             .finish(),
         );
 
-        EventHandler::new(
-            ConstrainedBox::new(tips.finish())
-                .with_width(MODAL_WIDTH)
-                .finish(),
-        )
-        .on_keydown(move |ctx, _, keystroke| {
-            ctx.dispatch_typed_action(TipsAction::KeyDown {
-                keystroke: keystroke.clone(),
-            });
-            DispatchEventResult::StopPropagation
-        })
-        .finish()
+        ConstrainedBox::new(tips.finish())
+            .with_width(MODAL_WIDTH)
+            .finish()
     }
 
     fn render_completed_overlay(&self, appearance: &Appearance) -> Box<dyn Element> {
@@ -521,27 +468,6 @@ impl TipsView {
     }
 }
 
-/// A model for tracking where the events from the tip view should be dispatched
-///
-/// Similar to command palette - we need a model to cache the information of where
-/// we should send the actions from the welcome tips. When the tip view is opened,
-/// we cache the current active window ID as well as the input ID of the active
-/// tab/pane. By sending all the actions to the input view, we ensure that
-/// they propgate correctly. This propogation assumes that each welcome tip action
-/// must be in the reponder chain. If an action is not in the responder chain
-/// (such as a block navigation action) then it won't propogate correctly.
-enum ActionTarget {
-    None,
-    View {
-        window_id: WindowId,
-        input_id: Option<EntityId>,
-    },
-}
-
-impl Entity for ActionTarget {
-    type Event = ();
-}
-
 impl Entity for TipsView {
     type Event = TipsEvent;
 }
@@ -556,24 +482,6 @@ impl TypedActionView for TipsView {
             }
             TipsAction::DismissTips => {
                 ctx.emit(TipsEvent::TipsDismissed);
-            }
-            TipsAction::Click { index } => {
-                let action = ctx
-                    .editable_bindings()
-                    .find(|action| action.name == self.tip_items[*index].editable_binding_name)
-                    .map(|action| action.action.clone());
-                if let Some(action) = action {
-                    self.dispatch_tip_action(action.as_ref(), ctx);
-                }
-            }
-            TipsAction::KeyDown { keystroke } => {
-                let action = ctx
-                    .editable_bindings()
-                    .find(|action| trigger_to_keystroke(action.trigger) == Some(keystroke.clone()))
-                    .map(|action| action.action.clone());
-                if let Some(action) = action {
-                    self.dispatch_tip_action(action.as_ref(), ctx);
-                }
             }
         }
     }
