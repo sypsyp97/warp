@@ -161,7 +161,6 @@ pub enum SettingsViewEvent {
     StartResize,
     LaunchNetworkLogging,
     OpenWarpDrive,
-    SignupAnonymousUser,
     ShowToast {
         message: String,
         flavor: ToastFlavor,
@@ -1564,12 +1563,10 @@ impl SettingsView {
 
     fn handle_main_page_event(
         &mut self,
-        event: &MainSettingsPageEvent,
-        ctx: &mut ViewContext<Self>,
+        _event: &MainSettingsPageEvent,
+        _ctx: &mut ViewContext<Self>,
     ) {
-        if let MainSettingsPageEvent::SignupAnonymousUser = event {
-            ctx.emit(SettingsViewEvent::SignupAnonymousUser);
-        }
+        // Slim fork: MainSettingsPageEvent has no remaining handled variants.
     }
 
     fn handle_billing_and_usage_page_event(
@@ -1578,9 +1575,6 @@ impl SettingsView {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            BillingAndUsagePageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
-            }
             BillingAndUsagePageEvent::ShowToast { message, flavor } => {
                 ctx.emit(SettingsViewEvent::ShowToast {
                     message: message.clone(),
@@ -1727,9 +1721,6 @@ impl SettingsView {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            ReferralsPageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
-            }
             ReferralsPageEvent::FocusModal => ctx.focus(&self.search_editor),
             ReferralsPageEvent::ShowToast { message, flavor } => {
                 ctx.emit(SettingsViewEvent::ShowToast {
@@ -1742,14 +1733,10 @@ impl SettingsView {
 
     fn handle_warp_drive_page_event(
         &mut self,
-        event: &warp_drive_page::WarpDriveSettingsPageEvent,
-        ctx: &mut ViewContext<Self>,
+        _event: &warp_drive_page::WarpDriveSettingsPageEvent,
+        _ctx: &mut ViewContext<Self>,
     ) {
-        match event {
-            warp_drive_page::WarpDriveSettingsPageEvent::SignUp => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
-            }
-        }
+        // Slim fork: WarpDriveSettingsPageEvent has no remaining handled variants.
     }
 
     fn handle_ai_page_event(&mut self, event: &AISettingsPageEvent, ctx: &mut ViewContext<Self>) {
@@ -1764,9 +1751,6 @@ impl SettingsView {
             AISettingsPageEvent::OpenExecutionProfileEditor(profile_id) => {
                 ctx.emit(SettingsViewEvent::OpenExecutionProfileEditor(*profile_id));
             }
-            AISettingsPageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
-            }
         }
     }
 
@@ -1776,9 +1760,6 @@ impl SettingsView {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            CodeSettingsPageEvent::SignupAnonymousUser => {
-                ctx.emit(SettingsViewEvent::SignupAnonymousUser)
-            }
             CodeSettingsPageEvent::OpenLspLogs { log_path } => {
                 ctx.emit(SettingsViewEvent::OpenLspLogs {
                     log_path: log_path.clone(),

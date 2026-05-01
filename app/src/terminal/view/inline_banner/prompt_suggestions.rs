@@ -310,7 +310,6 @@ fn get_tooltip_text_for_alert_state(alert_state: &PromptAlertState) -> Option<St
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PromptSuggestionsEvent {
-    SignupAnonymousUser,
     OpenBillingAndUsagePage,
     OpenPrivacyPage,
     OpenBillingPortal { team_uid: ServerId },
@@ -349,9 +348,6 @@ impl PromptSuggestionsView {
 
     fn handle_prompt_alert_event(&mut self, event: &PromptAlertEvent, ctx: &mut ViewContext<Self>) {
         match event {
-            PromptAlertEvent::SignupAnonymousUser => {
-                ctx.emit(PromptSuggestionsEvent::SignupAnonymousUser);
-            }
             PromptAlertEvent::OpenBillingAndUsagePage => {
                 ctx.emit(PromptSuggestionsEvent::OpenBillingAndUsagePage);
             }
@@ -455,9 +451,6 @@ impl TypedActionView for PromptSuggestionsView {
 
     fn handle_action(&mut self, action: &PromptSuggestionsEvent, ctx: &mut ViewContext<Self>) {
         match action {
-            PromptSuggestionsEvent::SignupAnonymousUser => {
-                ctx.emit(PromptSuggestionsEvent::SignupAnonymousUser);
-            }
             PromptSuggestionsEvent::OpenBillingAndUsagePage => {
                 ctx.emit(PromptSuggestionsEvent::OpenBillingAndUsagePage);
             }

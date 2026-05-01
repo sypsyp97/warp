@@ -48,8 +48,8 @@ pub enum PromptAlertAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)]
 pub enum PromptAlertEvent {
-    SignupAnonymousUser,
     OpenBillingAndUsagePage,
     OpenPrivacyPage,
     OpenBillingPortal { team_uid: ServerId },

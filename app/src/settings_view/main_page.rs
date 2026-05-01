@@ -58,7 +58,6 @@ pub enum MainPageAction {
     GenerateStripeBillingPortalLink {
         team_uid: ServerId,
     },
-    SignupAnonymousUser,
     OpenUrl(String),
 }
 
@@ -66,7 +65,6 @@ pub enum MainPageAction {
 #[allow(dead_code)]
 pub enum MainSettingsPageEvent {
     OpenWarpDrive,
-    SignupAnonymousUser,
 }
 
 pub struct MainSettingsPageView {

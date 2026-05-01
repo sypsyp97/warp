@@ -359,7 +359,6 @@ pub enum DriveIndexAction {
     ManageBilling {
         team_uid: ServerId,
     },
-    SignupAnonymousUser,
     DismissPersonalObjectLimits,
     SetCurrentWorkspace(WorkspaceUid),
     AttachPlanAsContext(AIDocumentId),
@@ -5315,9 +5314,6 @@ impl TypedActionView for DriveIndex {
                     SharingDialogSource::DriveIndex,
                     ctx,
                 );
-            }
-            DriveIndexAction::SignupAnonymousUser => {
-                // Slim fork: anonymous user linking is dead.
             }
             DriveIndexAction::DismissPersonalObjectLimits => {
                 self.dismiss_personal_object_limit_status(ctx);

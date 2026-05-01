@@ -40,7 +40,6 @@ pub enum BillingUsageTab {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum BillingAndUsagePageEvent {
-    SignupAnonymousUser,
     ShowToast {
         message: String,
         flavor: ToastFlavor,
@@ -78,7 +77,6 @@ pub enum BillingAndUsagePageAction {
         team_uid: ServerId,
     },
     ContactSupport,
-    SignupAnonymousUser,
     AttemptLoginGatedUpgrade,
     UpdateUsageBasedPricingSettings {
         team_uid: ServerId,

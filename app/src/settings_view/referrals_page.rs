@@ -18,12 +18,10 @@ use warpui::{AppContext, Element, Entity, TypedActionView, View, ViewContext, Vi
 pub enum ReferralsPageAction {
     CopyLink,
     SendEmailInvite,
-    SignupAnonymousUser,
 }
 
 #[allow(dead_code)]
 pub enum ReferralsPageEvent {
-    SignupAnonymousUser,
     FocusModal,
     ShowToast {
         message: String,
