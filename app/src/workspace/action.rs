@@ -365,7 +365,6 @@ pub enum WorkspaceAction {
         /// The type of zero state prompt suggestion to start with (optional).
         zero_state_prompt_suggestion_type: Option<ZeroStatePromptSuggestionType>,
     },
-    OpenCloudAgentSetupGuide,
     /// Dismisses the Wayland crash recovery banner and opens a link to our docs page with more
     /// information.
     #[cfg(target_os = "linux")]
@@ -727,7 +726,6 @@ impl WorkspaceAction {
             | ToggleUserMenu
             | ClickedAIAssistantIcon
             | ToggleAIAssistant
-            | OpenCloudAgentSetupGuide
             | ToggleKeybindingsPage
             | ShowCommandSearch(_)
             | ToggleMouseReporting
