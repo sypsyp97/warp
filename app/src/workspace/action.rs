@@ -277,9 +277,6 @@ pub enum WorkspaceAction {
     /// Closes the focused panel. This happens as an explicit action from the user.
     ClosePanel,
     CopyTextToClipboard(String),
-    /// An action only registered in dev and local builds, which writes the user's current access
-    /// token to the system clipboard to aid debugging and development.
-    CopyAccessTokenToClipboard,
     DismissWorkspaceBanner(WorkspaceBanner),
     /// An action only registered in dev and local builds, which crashes the
     /// app (via a Sentry helper method) immediately when called.
@@ -809,7 +806,6 @@ impl WorkspaceAction {
             | ToggleVerticalTabsShowDetailsOnHover
             | ToggleWelcomeTips
             | CopyTextToClipboard(_)
-            | CopyAccessTokenToClipboard
             | OpenTabConfigRepoPicker { .. }
             | OpenNewWorktreeModal
             | OpenNewWorktreeRepoPicker

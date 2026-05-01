@@ -164,7 +164,6 @@ use crate::search::command_palette::view::NavigationMode;
 use crate::search::slash_command_menu::static_commands::commands;
 use crate::server::network_log_pane_manager::NetworkLogPaneManager;
 use crate::server::server_api::ai::AIClient;
-use crate::server::server_api::auth::AuthClient;
 use crate::settings::{
     AISettings, AISettingsChangedEvent, CodeSettings, CodeSettingsChangedEvent, CtrlTabBehavior,
     DefaultSessionMode, InputModeSettings,
@@ -20212,17 +20211,6 @@ impl TypedActionView for Workspace {
             DropTab => {
                 self.current_workspace_state.is_tab_being_dragged = false;
                 send_telemetry_from_ctx!(TelemetryEvent::DragAndDropTab, ctx);
-            }
-            CopyAccessTokenToClipboard => {
-                // Blocking is ok here only because this action is only registered in dev and local
-                // builds to aid in debugging and development.
-                let access_token =
-                    warpui::r#async::block_on(self.server_api.get_or_refresh_access_token());
-                if let Ok(token) = access_token {
-                    if let Some(bearer) = token.bearer_token() {
-                        ctx.clipboard().write(ClipboardContent::plain_text(bearer));
-                    }
-                }
             }
             CopyTextToClipboard(text) => {
                 ctx.clipboard()
