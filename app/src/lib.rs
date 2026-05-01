@@ -1146,7 +1146,6 @@ fn initialize_app(
 
     ctx.add_singleton_model(AntivirusInfo::new);
 
-    let is_crash_reporting_enabled = false;
     timer.mark_interval_end("INIT_CRASH_REPORTING");
 
     if let LaunchMode::App { .. } = launch_mode {
@@ -1267,7 +1266,6 @@ fn initialize_app(
                 is_session_restoration_on: user_defaults_on_startup.should_restore_session,
                 is_screen_reader_enabled,
                 from_relaunch,
-                is_crash_reporting_enabled,
                 timing_data,
             });
 
