@@ -45,13 +45,6 @@ pub mod linux {
     }
 }
 
-/// A successfully downloaded and unpacked target update.
-#[derive(Clone, Debug)]
-pub struct DownloadedUpdate {
-    pub version: VersionInfo,
-    pub update_id: String,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub enum AutoupdateStage {
     #[default]
@@ -195,41 +188,10 @@ pub fn apply_update(
 /// Stub: no relaunch ever happens.
 pub fn initiate_relaunch_for_update(_app: &mut AppContext) {}
 
-/// Stub: there is never a pending update, so the callback is never invoked
-/// and we always return `false`.
-pub fn apply_pending_update<F>(_app: &mut AppContext, _on_update_complete: F) -> bool
-where
-    F: FnOnce(&mut AppContext) + Send + 'static,
-{
-    false
-}
-
-pub fn cancel_relaunch(_app: &mut AppContext) {}
-
-pub fn spawn_child_if_necessary(_app: &mut AppContext) {}
-
 pub fn manually_download_new_version(_ctx: &mut AppContext) {}
 
-pub(crate) fn check_and_report_update_errors(_ctx: &mut AppContext) {}
-
-pub fn remove_old_executable() -> Result<()> {
-    Ok(())
-}
-
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
-#[allow(dead_code)]
-pub enum RelaunchStatus {
-    #[default]
-    None,
-    Requested,
-    Failed,
-}
-
 #[derive(Clone, Copy, Default)]
-pub struct RelaunchModel {
-    #[allow(dead_code)]
-    relaunch_status: RelaunchStatus,
-}
+pub struct RelaunchModel;
 
 impl RelaunchModel {
     pub fn new() -> Self {
