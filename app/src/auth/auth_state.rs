@@ -8,12 +8,10 @@ use uuid::Uuid;
 use warp_graphql::object_permissions::OwnerType;
 use warpui::{AppContext, Entity, SingletonEntity};
 
-use crate::cloud_object::{GenericStringObjectFormat, JsonObjectType, ObjectType};
-
 use super::{
     anonymous_id::get_or_create_anonymous_id,
     credentials::Credentials,
-    user::{AnonymousUserType, PersonalObjectLimits, PrincipalType, User},
+    user::{PrincipalType, User},
     UserUid,
 };
 
@@ -124,89 +122,6 @@ impl AuthState {
     /// Returns whether the user considered onboarded to Warp.
     pub fn is_onboarded(&self) -> Option<bool> {
         self.user.read().as_ref().map(|user| user.is_onboarded)
-    }
-
-    /// Returns whether or not the user is anonymous.
-    /// Anonymous users are real Warp users, but have no providers linked in Firebase.
-    /// Returns `None` if there is no user data.
-    pub fn is_user_anonymous(&self) -> Option<bool> {
-        self.user
-            .read()
-            .as_ref()
-            .map(|user| user.is_user_anonymous())
-    }
-
-    /// Returns whether or not the user is a "web client anonymous user", aka their account
-    /// originated from viewing Warp on web.
-    pub fn is_user_web_anonymous_user(&self) -> Option<bool> {
-        self.user.read().as_ref().map(|user| {
-            user.anonymous_user_type() == Some(AnonymousUserType::WebClientAnonymousUser)
-                && user.linked_at().is_none()
-        })
-    }
-
-    /// Returns whether or not the user is a feature gated anonymous user.
-    pub fn is_anonymous_user_feature_gated(&self) -> Option<bool> {
-        self.user.read().as_ref().map(|user| {
-            if !self.is_user_anonymous().unwrap_or_default() {
-                return false;
-            }
-
-            matches!(
-                user.anonymous_user_type(),
-                Some(AnonymousUserType::NativeClientAnonymousUserFeatureGated)
-            )
-        })
-    }
-
-    /// Returns whether or not the anonymous user is past any of their Warp Drive object limits.
-    pub fn is_anonymous_user_past_object_limit(
-        &self,
-        object_type: ObjectType,
-        num_objects: usize,
-    ) -> Option<bool> {
-        self.user.read().as_ref().map(|user| {
-            if !self.is_anonymous_user_feature_gated().unwrap_or_default() {
-                return false;
-            }
-
-            if let Some(limits) = user.personal_object_limits() {
-                match object_type {
-                    ObjectType::Notebook => num_objects > limits.notebook_limit,
-                    ObjectType::Workflow => num_objects > limits.workflow_limit,
-                    ObjectType::GenericStringObject(GenericStringObjectFormat::Json(
-                        JsonObjectType::EnvVarCollection,
-                    )) => num_objects > limits.env_var_limit,
-                    _ => false,
-                }
-            } else {
-                false
-            }
-        })
-    }
-
-    /// Returns the user's photo URL from Firebase,
-    /// typically acquired from linking a provider like Google/GitHub.
-    pub fn user_photo_url(&self) -> Option<String> {
-        self.user
-            .read()
-            .as_ref()
-            .and_then(|user| user.metadata.photo_url.clone())
-    }
-
-    /// Returns whether or not the user needs to link their account to an SSO provider.
-    /// The actual value is calculated on the server to avoid additional RPCs to Firebase.
-    pub fn needs_sso_link(&self) -> Option<bool> {
-        self.user.read().as_ref().map(|user| user.needs_sso_link)
-    }
-
-    /// Returns the personal object limits the user has.
-    /// Currently, only anonymous users have limits.
-    pub fn personal_object_limits(&self) -> Option<PersonalObjectLimits> {
-        self.user
-            .read()
-            .as_ref()
-            .and_then(|user| user.personal_object_limits())
     }
 
     /// Set whether or not the user is onboarded.

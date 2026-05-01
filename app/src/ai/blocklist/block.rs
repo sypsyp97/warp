@@ -1294,7 +1294,7 @@ impl AIBlock {
             model,
             terminal_model,
             client_ids,
-            profile_image_path: auth_state.user_photo_url(),
+            profile_image_path: None,
             user_display_name,
             controller,
             action_model,

@@ -17,11 +17,6 @@ fn test_parse_user_profile() -> Result<()> {
         is_onboarded: true,
         local_id: UserUid::new("test_local_id"),
         metadata: response.into(),
-        needs_sso_link: true,
-        anonymous_user_type: None,
-        is_on_work_domain: false,
-        linked_at: None,
-        personal_object_limits: None,
         principal_type: PrincipalType::User,
     };
     assert_eq!(user.metadata.display_name.as_deref(), Some("Test User"));
@@ -30,7 +25,6 @@ fn test_parse_user_profile() -> Result<()> {
         user.metadata.photo_url.as_deref(),
         Some("https://photourl.example.com/1234")
     );
-    assert!(user.needs_sso_link);
 
     Ok(())
 }

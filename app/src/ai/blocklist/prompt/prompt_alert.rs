@@ -21,19 +21,14 @@ use crate::{
 };
 use ai::api_keys::ApiKeyManager;
 
-const ANONYMOUS_USER_REQUEST_LIMIT_SOFT_GATE_PERCENTAGE: f32 = 0.5;
-
 const TELEMETRY_DISABLED_PRIMARY_TEXT: &str = "To use AI features,";
 const ENABLE_ANALYTICS_ACTION_TEXT: &str = "enable analytics";
 const UPGRADE_TO_BUILD_ACTION_TEXT: &str = "upgrade";
 
 const NO_CONNECTION_PRIMARY_TEXT: &str = "No internet connection";
-const ANONYMOUS_USER_REQUEST_LIMIT_SOFT_GATE_PRIMARY_TEXT: &str = "";
-const ANONYMOUS_USER_REQUEST_LIMIT_HARD_GATE_PRIMARY_TEXT: &str = "At Limit -";
 const DELINQUENT_DUE_TO_PAYMENT_ISSUE_PRIMARY_TEXT: &str = "Restricted due to payment issue";
 const OUT_OF_REQUESTS_PRIMARY_TEXT: &str = "Out of credits";
 
-const ANONYMOUS_USER_REQUEST_LIMIT_ACTION_TEXT: &str = "Sign up for more AI credits";
 const DELINQUENT_DUE_TO_PAYMENT_ISSUE_ACTION_TEXT: &str = "Manage billing";
 const OVERAGES_TOGGLEABLE_BUT_NOT_ENABLED_ACTION_TEXT: &str = "Enable premium overages";
 const MONTHLY_OVERAGES_SPEND_LIMIT_REACHED_ACTION_TEXT: &str = "Increase monthly spend limit";
@@ -47,10 +42,9 @@ const NON_ADMIN_ASK_ADMIN_TO_INCREASE_OVERAGES_TEXT: &str =
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PromptAlertAction {
-    SignUpClickedForAnonymousUser,
-    OpenSettingsClicked,
-    OpenPrivacySettingsClicked,
-    ManageBillingClicked { team_uid: ServerId },
+    OpenSettings,
+    OpenPrivacySettings,
+    ManageBilling { team_uid: ServerId },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,11 +63,6 @@ pub enum PromptAlertState {
     /// Telemetry is disabled and the user is on a free tier.
     /// Free tier users must enable telemetry or upgrade to use AI features.
     TelemetryDisabledOnFreeTier,
-    /// An anonymous user has reached a certain percentage of requests used.
-    /// This doesn't use a primary text to avoid being too in-your-face.
-    AnonymousUserRequestLimitSoftGate,
-    /// An anonymous user has reached the request limit.
-    AnonymousUserRequestLimitHardGate,
     /// The user is delinquent due to a payment issue.
     DelinquentDueToPaymentIssue,
     /// Overages could be turned on, but aren't enabled.
@@ -152,24 +141,6 @@ impl PromptAlertView {
         }
 
         let request_usage_model = AIRequestUsageModel::as_ref(app);
-        let has_requests_remaining = request_usage_model.has_requests_remaining();
-        let auth_state = AuthStateProvider::as_ref(app).get();
-
-        // Next, if the user is anonymous, we check if they have reached a certain percentage of requests used.
-        if auth_state
-            .is_anonymous_user_feature_gated()
-            .unwrap_or_default()
-        {
-            let percentage_used = request_usage_model.request_percentage_used();
-
-            if percentage_used >= ANONYMOUS_USER_REQUEST_LIMIT_SOFT_GATE_PERCENTAGE {
-                if has_requests_remaining {
-                    return PromptAlertState::AnonymousUserRequestLimitSoftGate;
-                } else {
-                    return PromptAlertState::AnonymousUserRequestLimitHardGate;
-                }
-            }
-        }
 
         // Next, make sure the user isn't delinquent in their plan.
         let workspace = UserWorkspaces::as_ref(app).current_workspace();
@@ -234,16 +205,6 @@ impl PromptAlertView {
                     TELEMETRY_DISABLED_PRIMARY_TEXT,
                 ));
             }
-            PromptAlertState::AnonymousUserRequestLimitSoftGate => {
-                text_fragments.push(FormattedTextFragment::plain_text(
-                    ANONYMOUS_USER_REQUEST_LIMIT_SOFT_GATE_PRIMARY_TEXT,
-                ));
-            }
-            PromptAlertState::AnonymousUserRequestLimitHardGate => {
-                text_fragments.push(FormattedTextFragment::plain_text(
-                    ANONYMOUS_USER_REQUEST_LIMIT_HARD_GATE_PRIMARY_TEXT,
-                ));
-            }
             PromptAlertState::DelinquentDueToPaymentIssue => {
                 text_fragments.push(FormattedTextFragment::plain_text(
                     DELINQUENT_DUE_TO_PAYMENT_ISSUE_PRIMARY_TEXT,
@@ -279,7 +240,7 @@ impl PromptAlertView {
                 text_fragments.push(FormattedTextFragment::plain_text("  "));
                 text_fragments.push(FormattedTextFragment::hyperlink_action(
                     ENABLE_ANALYTICS_ACTION_TEXT,
-                    PromptAlertAction::OpenPrivacySettingsClicked,
+                    PromptAlertAction::OpenPrivacySettings,
                 ));
 
                 // Show "or upgrade to Build" link
@@ -296,14 +257,6 @@ impl PromptAlertView {
                 ));
                 text_fragments.push(FormattedTextFragment::plain_text("."));
             }
-            PromptAlertState::AnonymousUserRequestLimitSoftGate
-            | PromptAlertState::AnonymousUserRequestLimitHardGate => {
-                text_fragments.push(FormattedTextFragment::plain_text("  "));
-                text_fragments.push(FormattedTextFragment::hyperlink_action(
-                    ANONYMOUS_USER_REQUEST_LIMIT_ACTION_TEXT,
-                    PromptAlertAction::SignUpClickedForAnonymousUser,
-                ));
-            }
             PromptAlertState::DelinquentDueToPaymentIssue => {
                 // Check if user is team admin with billing history
                 let has_billing_history = current_team
@@ -313,7 +266,7 @@ impl PromptAlertView {
                     text_fragments.push(FormattedTextFragment::plain_text("  "));
                     text_fragments.push(FormattedTextFragment::hyperlink_action(
                         DELINQUENT_DUE_TO_PAYMENT_ISSUE_ACTION_TEXT,
-                        PromptAlertAction::ManageBillingClicked {
+                        PromptAlertAction::ManageBilling {
                             team_uid: current_team.map(|team| team.uid).unwrap_or_default(),
                         },
                     ));
@@ -328,7 +281,7 @@ impl PromptAlertView {
                     text_fragments.push(FormattedTextFragment::plain_text("  "));
                     text_fragments.push(FormattedTextFragment::hyperlink_action(
                         OVERAGES_TOGGLEABLE_BUT_NOT_ENABLED_ACTION_TEXT,
-                        PromptAlertAction::OpenSettingsClicked,
+                        PromptAlertAction::OpenSettings,
                     ));
                 } else {
                     text_fragments.push(FormattedTextFragment::plain_text(
@@ -341,7 +294,7 @@ impl PromptAlertView {
                     text_fragments.push(FormattedTextFragment::plain_text("  "));
                     text_fragments.push(FormattedTextFragment::hyperlink_action(
                         MONTHLY_OVERAGES_SPEND_LIMIT_REACHED_ACTION_TEXT,
-                        PromptAlertAction::OpenSettingsClicked,
+                        PromptAlertAction::OpenSettings,
                     ));
                 } else {
                     text_fragments.push(FormattedTextFragment::plain_text(
@@ -403,10 +356,9 @@ impl PromptAlertView {
 
 fn does_alert_block_ai_requests(state: &PromptAlertState) -> bool {
     match state {
-        PromptAlertState::AnonymousUserRequestLimitSoftGate | PromptAlertState::NoAlert => false,
+        PromptAlertState::NoAlert => false,
         PromptAlertState::NoConnection
         | PromptAlertState::TelemetryDisabledOnFreeTier
-        | PromptAlertState::AnonymousUserRequestLimitHardGate
         | PromptAlertState::DelinquentDueToPaymentIssue
         | PromptAlertState::OveragesToggleableButNotEnabled
         | PromptAlertState::MonthlyOveragesSpendLimitReached
@@ -521,16 +473,13 @@ impl TypedActionView for PromptAlertView {
 
     fn handle_action(&mut self, action: &Self::Action, ctx: &mut ViewContext<Self>) {
         match action {
-            PromptAlertAction::SignUpClickedForAnonymousUser => {
-                ctx.emit(PromptAlertEvent::SignupAnonymousUser);
-            }
-            PromptAlertAction::OpenSettingsClicked => {
+            PromptAlertAction::OpenSettings => {
                 ctx.emit(PromptAlertEvent::OpenBillingAndUsagePage);
             }
-            PromptAlertAction::OpenPrivacySettingsClicked => {
+            PromptAlertAction::OpenPrivacySettings => {
                 ctx.emit(PromptAlertEvent::OpenPrivacyPage);
             }
-            PromptAlertAction::ManageBillingClicked { team_uid } => {
+            PromptAlertAction::ManageBilling { team_uid } => {
                 ctx.emit(PromptAlertEvent::OpenBillingPortal {
                     team_uid: *team_uid,
                 });

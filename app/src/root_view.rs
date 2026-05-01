@@ -2603,10 +2603,9 @@ impl RootView {
     #[cfg(test)]
     fn sync_local_onboarding_to_server(auth_state: &AuthState, ctx: &mut AppContext) {
         let is_onboarded = auth_state.is_onboarded().unwrap_or(true);
-        let is_anonymous = auth_state.is_user_anonymous().unwrap_or(false);
         let has_completed_local_onboarding = has_completed_local_onboarding(ctx);
 
-        if has_completed_local_onboarding && !is_onboarded && !is_anonymous {
+        if has_completed_local_onboarding && !is_onboarded {
             AuthManager::handle(ctx).update(ctx, |model, ctx| model.set_user_onboarded(ctx));
         }
     }
@@ -2863,12 +2862,10 @@ impl AuthOnboardingState {
         // Check if we should show onboarding (only for users who are not yet onboarded).
         let auth_state = AuthStateProvider::as_ref(ctx).get();
         let is_onboarded = auth_state.is_onboarded().unwrap_or(true);
-        let is_anonymous = auth_state.is_user_anonymous().unwrap_or(false);
 
         let has_completed_local_onboarding = has_completed_local_onboarding(ctx);
 
         if !is_onboarded
-            && !is_anonymous
             && !has_completed_local_onboarding
             && FeatureFlag::AgentOnboarding.is_enabled()
         {

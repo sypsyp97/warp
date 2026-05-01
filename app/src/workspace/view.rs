@@ -16732,10 +16732,6 @@ impl Workspace {
         ctx: &AppContext,
     ) -> Box<dyn Element> {
         let mut tab_bar = Flex::row().with_cross_axis_alignment(CrossAxisAlignment::Center);
-        let is_web_anonymous_user = self
-            .auth_state
-            .is_user_web_anonymous_user()
-            .unwrap_or_default();
 
         // Simplified mode for viewing Warp Drive objects, shared sessions, or conversation transcripts on WASM
         #[cfg(target_family = "wasm")]
@@ -16857,7 +16853,6 @@ impl Workspace {
             self.add_configurable_right_side_tab_bar_controls(
                 &mut right_controls,
                 &config,
-                is_web_anonymous_user,
                 appearance,
                 ctx,
             );
@@ -16953,7 +16948,6 @@ impl Workspace {
         self.add_configurable_right_side_tab_bar_controls(
             &mut tab_bar,
             &config,
-            is_web_anonymous_user,
             appearance,
             ctx,
         );
@@ -17095,7 +17089,6 @@ impl Workspace {
         &self,
         target: &mut Flex,
         config: &crate::workspace::tab_settings::HeaderToolbarChipSelection,
-        is_web_anonymous_user: bool,
         appearance: &Appearance,
         ctx: &AppContext,
     ) {
@@ -17126,7 +17119,6 @@ impl Workspace {
         // Legacy AI assistant button (non-agent-mode only)
         if is_online
             && !FeatureFlag::AgentMode.is_enabled()
-            && !is_web_anonymous_user
             && !self.current_workspace_state.is_ai_assistant_panel_open
         {
             target.add_child(
@@ -17444,14 +17436,7 @@ impl Workspace {
             .username_for_display()
             .unwrap_or(DEFAULT_USER_DISPLAY_NAME.to_owned());
 
-        let avatar_content = self
-            .auth_state
-            .user_photo_url()
-            .map(|url| AvatarContent::Image {
-                url,
-                display_name: display_name.clone(),
-            })
-            .unwrap_or(AvatarContent::DisplayName(display_name.clone()));
+        let avatar_content = AvatarContent::DisplayName(display_name.clone());
 
         let mut avatar = Avatar::new(
             avatar_content,

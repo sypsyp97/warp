@@ -587,14 +587,6 @@ impl UserWorkspaces {
     // Returns a Vec of the user's active spaces, based on their
     // team membership. Includes the "Personal Space" by default.
     pub fn all_user_spaces(&self, ctx: &AppContext) -> Vec<Space> {
-        if AuthStateProvider::as_ref(ctx)
-            .get()
-            .is_user_web_anonymous_user()
-            .unwrap_or_default()
-        {
-            return vec![Space::Shared];
-        }
-
         let mut spaces = Vec::new();
         spaces.extend(self.team_spaces().iter());
 

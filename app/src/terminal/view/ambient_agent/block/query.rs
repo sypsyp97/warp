@@ -66,13 +66,12 @@ fn render_user_query(
     let user_display_name = auth_state
         .username_for_display()
         .unwrap_or_else(|| DEFAULT_USER_DISPLAY_NAME.to_owned());
-    let profile_image_url = auth_state.user_photo_url();
 
     let mut column = Flex::column().with_child(
         render_query(
             prompt,
             &user_display_name,
-            profile_image_url.as_ref(),
+            None,
             None,
             &Default::default(),
             &Default::default(),

@@ -38,14 +38,13 @@ impl TerminalView {
         let user_display_name = auth_state
             .username_for_display()
             .unwrap_or_else(|| "User".to_owned());
-        let profile_image_path = auth_state.user_photo_url();
 
         let prompt_for_send_now = prompt.clone();
         let handle = ctx.add_typed_action_view(|ctx| {
             PendingUserQueryBlock::new(
                 prompt,
                 user_display_name,
-                profile_image_path,
+                None,
                 show_close_button,
                 show_send_now_button,
                 ctx,

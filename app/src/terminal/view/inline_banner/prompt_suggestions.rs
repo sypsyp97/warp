@@ -138,7 +138,6 @@ fn render_button(
     let is_button_disabled = matches!(
         prompt_alert_state,
         PromptAlertState::NoConnection
-            | PromptAlertState::AnonymousUserRequestLimitHardGate
             | PromptAlertState::DelinquentDueToPaymentIssue
             | PromptAlertState::OveragesToggleableButNotEnabled
             | PromptAlertState::MonthlyOveragesSpendLimitReached
@@ -301,8 +300,6 @@ fn get_tooltip_text_for_alert_state(alert_state: &PromptAlertState) -> Option<St
             Some(DELINQUENT_DUE_TO_PAYMENT_ISSUE_TOOLTIP_MESSAGE.to_string())
         }
         PromptAlertState::RequestLimitReached
-        | PromptAlertState::AnonymousUserRequestLimitHardGate
-        | PromptAlertState::AnonymousUserRequestLimitSoftGate
         | PromptAlertState::OveragesToggleableButNotEnabled
         | PromptAlertState::MonthlyOveragesSpendLimitReached => {
             Some(OUT_OF_REQUESTS_TOOLTIP_MESSAGE.to_string())

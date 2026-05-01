@@ -417,10 +417,6 @@ impl AIRequestUsageModel {
         self.request_limit_info.num_requests_used_since_refresh
     }
 
-    pub fn request_percentage_used(&self) -> f32 {
-        self.requests_used() as f32 / self.request_limit() as f32
-    }
-
     pub fn request_limit(&self) -> usize {
         self.request_limit_info.limit
     }

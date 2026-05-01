@@ -1,74 +1,25 @@
-use warpui::{SingletonEntity, ViewContext};
+use warpui::ViewContext;
 
-use crate::{
-    auth::AuthStateProvider,
-    cloud_object::{
-        model::persistence::CloudModel, GenericStringObjectFormat, JsonObjectType, ObjectType,
-        Space,
-    },
-};
-
+/// Slim fork: anonymous-user object limits don't exist, so the
+/// "feature-gated anonymous user reached the limit" check is always false.
 pub fn has_feature_gated_anonymous_user_reached_notebook_limit<V: warpui::View>(
-    ctx: &mut ViewContext<V>,
+    _ctx: &mut ViewContext<V>,
 ) -> bool {
-    let count = CloudModel::handle(ctx).read(ctx, |model, ctx| {
-        model
-            .active_non_welcome_notebooks_in_space(Space::Personal, ctx)
-            .count()
-    });
-    if AuthStateProvider::handle(ctx).read(ctx, |auth_state_provider, _ctx| {
-        auth_state_provider
-            .get()
-            .is_anonymous_user_past_object_limit(ObjectType::Notebook, count + 1)
-            .unwrap_or_default()
-    }) {
-        return true;
-    };
-
     false
 }
 
+/// Slim fork: anonymous-user object limits don't exist, so the
+/// "feature-gated anonymous user reached the limit" check is always false.
 pub fn has_feature_gated_anonymous_user_reached_workflow_limit<V: warpui::View>(
-    ctx: &mut ViewContext<V>,
+    _ctx: &mut ViewContext<V>,
 ) -> bool {
-    let count = CloudModel::handle(ctx).read(ctx, |model, ctx| {
-        model
-            .active_non_welcome_workflows_in_space(Space::Personal, ctx)
-            .count()
-    });
-    if AuthStateProvider::handle(ctx).read(ctx, |auth_state_provider, _ctx| {
-        auth_state_provider
-            .get()
-            .is_anonymous_user_past_object_limit(ObjectType::Workflow, count + 1)
-            .unwrap_or_default()
-    }) {
-        return true;
-    };
-
     false
 }
 
+/// Slim fork: anonymous-user object limits don't exist, so the
+/// "feature-gated anonymous user reached the limit" check is always false.
 pub fn has_feature_gated_anonymous_user_reached_env_var_limit<V: warpui::View>(
-    ctx: &mut ViewContext<V>,
+    _ctx: &mut ViewContext<V>,
 ) -> bool {
-    let count = CloudModel::handle(ctx).read(ctx, |model, ctx| {
-        model
-            .active_non_welcome_env_var_collections_in_space(Space::Personal, ctx)
-            .count()
-    });
-    if AuthStateProvider::handle(ctx).read(ctx, |auth_state_provider, _ctx| {
-        auth_state_provider
-            .get()
-            .is_anonymous_user_past_object_limit(
-                ObjectType::GenericStringObject(GenericStringObjectFormat::Json(
-                    JsonObjectType::EnvVarCollection,
-                )),
-                count + 1,
-            )
-            .unwrap_or_default()
-    }) {
-        return true;
-    };
-
     false
 }
