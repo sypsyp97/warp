@@ -139,19 +139,6 @@ impl AuthState {
         self.user.read().as_ref().map(|user| user.is_onboarded)
     }
 
-    /// Returns the user's email domain (anything after the @ sign of their email).
-    pub fn user_email_domain(&self) -> Option<String> {
-        self.user.read().as_ref().map(|user| {
-            user.metadata
-                .email
-                .clone()
-                .split('@')
-                .nth(1)
-                .unwrap_or("")
-                .to_string()
-        })
-    }
-
     /// Returns whether or not the user is anonymous.
     /// Anonymous users are real Warp users, but have no providers linked in Firebase.
     /// Returns `None` if there is no user data.
