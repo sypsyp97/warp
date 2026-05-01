@@ -24,7 +24,7 @@ use warpui::{
     assets::asset_cache::{AssetCache, AssetSource, AssetState},
     elements::{
         new_scrollable::{ScrollableAppearance, SingleAxisConfig},
-        Align, Axis, Border, ChildAnchor, ChildView, ClippedScrollStateHandle, ConstrainedBox,
+        Align, Axis, Border, ChildAnchor, ClippedScrollStateHandle, ConstrainedBox,
         Container, CornerRadius, CrossAxisAlignment, DispatchEventResult, Empty, EventHandler,
         Expanded, Fill, Flex, FormattedTextElement, HeadingFontSizeMultipliers, Hoverable,
         Image as WarpImage, MainAxisAlignment, MainAxisSize, MouseStateHandle, NewScrollable,
@@ -80,7 +80,6 @@ use crate::{
                 CodeSnippetButtonHandles,
             },
             inline_action::{
-                aws_bedrock_credentials_error::AwsBedrockCredentialsErrorView,
                 inline_action_header::{
                     INLINE_ACTION_HEADER_VERTICAL_PADDING, INLINE_ACTION_HORIZONTAL_PADDING,
                 },
@@ -2937,7 +2936,6 @@ pub(crate) fn resolve_absolute_file_path(
 pub struct FailedOutputProps<'a> {
     pub error: &'a RenderableAIError,
     pub invalid_api_key_button_handle: &'a MouseStateHandle,
-    pub aws_bedrock_credentials_error_view: Option<&'a ViewHandle<AwsBedrockCredentialsErrorView>>,
     pub is_ai_input_enabled: bool,
     pub icon_right_margin: f32,
 }
@@ -2997,17 +2995,6 @@ pub fn render_failed_output(props: FailedOutputProps, app: &AppContext) -> Box<d
                 .with_icon(inline_action_icons::cancelled_icon(appearance).finish())
                 .render(app)
                 .finish();
-        }
-        RenderableAIError::AwsBedrockCredentialsExpiredOrInvalid { model_name } => {
-            // Use the rich stateful view if it exists, otherwise show a simple error message
-            if let Some(view) = props.aws_bedrock_credentials_error_view {
-                return ChildView::new(view).finish();
-            }
-            // Fallback for contexts that don't have the stateful view (e.g. CLI subagent)
-            format!(
-                "{ERROR_APOLOGY_TEXT}\n\nAWS credentials expired or missing for {model_name}. \
-                 Please refresh your AWS credentials."
-            )
         }
     };
 

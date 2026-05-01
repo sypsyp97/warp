@@ -63,22 +63,15 @@ pub struct GcpProviderConfig {
     pub service_account_email: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct AwsProviderConfig {
-    pub role_arn: String,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 pub struct ProvidersConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gcp: Option<GcpProviderConfig>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub aws: Option<AwsProviderConfig>,
 }
 
 impl ProvidersConfig {
     pub fn is_empty(&self) -> bool {
-        self.gcp.is_none() && self.aws.is_none()
+        self.gcp.is_none()
     }
 }
 

@@ -2103,13 +2103,8 @@ impl From<warp_graphql::queries::get_feature_model_choices::LlmModelHost> for LL
             warp_graphql::queries::get_feature_model_choices::LlmModelHost::DirectApi => {
                 LLMModelHost::DirectApi
             }
-            warp_graphql::queries::get_feature_model_choices::LlmModelHost::AwsBedrock => {
-                LLMModelHost::AwsBedrock
-            }
-            warp_graphql::queries::get_feature_model_choices::LlmModelHost::Other(value) => {
-                report_error!(anyhow!(
-                    "Unknown LlmModelHost '{value}'. Make sure to update client GraphQL types!"
-                ));
+            warp_graphql::queries::get_feature_model_choices::LlmModelHost::AwsBedrock
+            | warp_graphql::queries::get_feature_model_choices::LlmModelHost::Other(_) => {
                 LLMModelHost::Unknown
             }
         }

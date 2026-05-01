@@ -21,27 +21,6 @@ fn deserialize_legacy_environment_without_providers() {
 }
 
 #[test]
-fn deserialize_with_aws_provider() {
-    let json = serde_json::json!({
-        "name": "aws-env",
-        "github_repos": [],
-        "docker_image": "node:18",
-        "providers": {
-            "aws": {
-                "role_arn": "arn:aws:iam::123456789012:role/my-role"
-            }
-        }
-    });
-
-    let env: AmbientAgentEnvironment = serde_json::from_value(json).unwrap();
-    assert_eq!(env.name, "aws-env");
-    let providers = env.providers;
-    assert_eq!(providers.gcp, None);
-    let aws = providers.aws.unwrap();
-    assert_eq!(aws.role_arn, "arn:aws:iam::123456789012:role/my-role");
-}
-
-#[test]
 fn deserialize_with_gcp_provider() {
     let json = serde_json::json!({
         "name": "gcp-env",
@@ -90,30 +69,6 @@ fn deserialize_with_gcp_provider_service_account() {
 }
 
 #[test]
-fn deserialize_with_both_providers() {
-    let json = serde_json::json!({
-        "name": "both-env",
-        "github_repos": [],
-        "docker_image": "node:18",
-        "providers": {
-            "gcp": {
-                "project_number": "123456",
-                "workload_identity_federation_pool_id": "pool-1",
-                "workload_identity_federation_provider_id": "provider-1"
-            },
-            "aws": {
-                "role_arn": "arn:aws:iam::123456789012:role/my-role"
-            }
-        }
-    });
-
-    let env: AmbientAgentEnvironment = serde_json::from_value(json).unwrap();
-    let providers = env.providers;
-    assert!(providers.gcp.is_some());
-    assert!(providers.aws.is_some());
-}
-
-#[test]
 fn serialize_with_providers_none_omits_field() {
     let env = AmbientAgentEnvironment::new(
         "test-env".into(),
@@ -137,16 +92,17 @@ fn serialize_with_providers_includes_field() {
         vec![],
     );
     env.providers = ProvidersConfig {
-        gcp: None,
-        aws: Some(AwsProviderConfig {
-            role_arn: "arn:aws:iam::123456789012:role/test".into(),
+        gcp: Some(GcpProviderConfig {
+            project_number: "999".into(),
+            workload_identity_federation_pool_id: "p".into(),
+            workload_identity_federation_provider_id: "pr".into(),
+            service_account_email: None,
         }),
     };
 
     let json = serde_json::to_value(&env).unwrap();
     let providers = json.get("providers").unwrap();
-    assert!(providers.get("aws").is_some());
-    assert!(providers.get("gcp").is_none());
+    assert!(providers.get("gcp").is_some());
 }
 
 #[test]
@@ -164,9 +120,6 @@ fn roundtrip_serde_with_providers() {
             workload_identity_federation_pool_id: "p".into(),
             workload_identity_federation_provider_id: "pr".into(),
             service_account_email: Some("sa@proj.iam.gserviceaccount.com".into()),
-        }),
-        aws: Some(AwsProviderConfig {
-            role_arn: "arn:aws:iam::1:role/r".into(),
         }),
     };
 

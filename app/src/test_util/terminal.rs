@@ -33,7 +33,6 @@ use crate::pricing::PricingInfoModel;
 use crate::server::telemetry::context_provider::AppTelemetryContextProvider;
 use crate::suggestions::ignored_suggestions_model::IgnoredSuggestionsModel;
 use crate::terminal::shared_session::permissions_manager::SessionPermissionsManager;
-use crate::terminal::view::inline_banner::ByoLlmAuthBannerSessionState;
 use crate::undo_close::UndoCloseStack;
 use crate::workspace::{OneTimeModalModel, WorkspaceRegistry};
 use crate::AgentNotificationsModel;
@@ -133,7 +132,6 @@ pub fn initialize_app_for_terminal_view(app: &mut App) {
     app.add_singleton_model(|_| IgnoredSuggestionsModel::new(vec![]));
     app.add_singleton_model(|_| PricingInfoModel::new());
     app.add_singleton_model(AIDocumentModel::new);
-    app.add_singleton_model(ByoLlmAuthBannerSessionState::new);
     app.add_singleton_model(|_| GitHubAuthNotifier::new());
     app.add_singleton_model(AgentConversationsModel::new);
     app.add_singleton_model(PersistedWorkspace::new_for_test);

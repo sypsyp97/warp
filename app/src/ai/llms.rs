@@ -106,7 +106,6 @@ impl LLMProvider {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LLMModelHost {
     DirectApi,
-    AwsBedrock,
     #[serde(other)]
     Unknown,
 }

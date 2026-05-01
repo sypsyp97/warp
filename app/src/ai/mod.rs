@@ -13,8 +13,6 @@ pub mod ambient_agents;
 pub(crate) mod artifact_download;
 pub mod artifacts;
 pub(crate) mod attachment_utils;
-#[cfg(not(target_family = "wasm"))]
-pub mod aws_credentials;
 pub(crate) mod block_context;
 pub(crate) mod blocklist;
 pub mod control_code_parser;

@@ -30,24 +30,16 @@ fn llm_info_deserializes_host_configs_as_vec() {
             "usage_metadata": { "request_multiplier": 1, "credit_multiplier": null },
             "provider": "OpenAI",
             "host_configs": [
-                { "enabled": true, "model_routing_host": "DirectApi" },
-                { "enabled": false, "model_routing_host": "AwsBedrock" }
+                { "enabled": true, "model_routing_host": "DirectApi" }
             ]
         }"#;
 
     let info: LLMInfo = serde_json::from_str(raw).expect("should deserialize vec format");
     assert_eq!(info.display_name, "gpt-4o");
-    assert_eq!(info.host_configs.len(), 2);
+    assert_eq!(info.host_configs.len(), 1);
     assert!(
         info.host_configs
             .get(&LLMModelHost::DirectApi)
-            .unwrap()
-            .enabled
-    );
-    assert!(
-        !info
-            .host_configs
-            .get(&LLMModelHost::AwsBedrock)
             .unwrap()
             .enabled
     );
