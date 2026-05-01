@@ -16,7 +16,6 @@ use super::{
     settings_page::{MatchData, PageType, SettingsPageMeta, SettingsPageViewHandle},
     SettingsAction, SettingsSection, ToggleSettingActionPair,
 };
-use crate::auth::auth_manager::LoginGatedFeature;
 use crate::auth::UserUid;
 use crate::server::ids::ServerId;
 use std::sync::{Arc, Mutex};
@@ -62,18 +61,6 @@ pub enum MainPageAction {
     },
     SignupAnonymousUser,
     OpenUrl(String),
-}
-
-impl From<&MainPageAction> for LoginGatedFeature {
-    fn from(val: &MainPageAction) -> LoginGatedFeature {
-        use MainPageAction::*;
-        match val {
-            Upgrade { .. } => "Upgrade Plan",
-            GenerateStripeBillingPortalLink { .. } => "Generate Stripe Billing Portal Link",
-            ToggleSettingsSync => "Toggle Settings Sync",
-            _ => "Unknown reason",
-        }
-    }
 }
 
 #[derive(Clone, Copy)]

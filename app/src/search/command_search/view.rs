@@ -29,10 +29,7 @@ use crate::{
         execution_context::WarpAiExecutionContext, GenerateCommandsFromNaturalLanguageError,
     },
     appearance::Appearance,
-    auth::{
-        auth_manager::AuthManager, auth_state::AuthState, auth_view_modal::AuthViewVariant,
-        AuthStateProvider, UserUid,
-    },
+    auth::{auth_state::AuthState, AuthStateProvider, UserUid},
     completer::SessionContext,
     drive::settings::WarpDriveSettings,
     search::{
@@ -978,15 +975,7 @@ impl TypedActionView for CommandSearchView {
             OpenUpgradeLink(upgrade_link) => {
                 ctx.open_url(upgrade_link);
             }
-            AttemptLoginGatedUpgrade => {
-                AuthManager::handle(ctx).update(ctx, |auth_manager, ctx| {
-                    auth_manager.attempt_login_gated_feature(
-                        "Upgrade AI Usage",
-                        AuthViewVariant::RequireLoginCloseable,
-                        ctx,
-                    )
-                });
-            }
+            AttemptLoginGatedUpgrade => {}
         }
     }
 }

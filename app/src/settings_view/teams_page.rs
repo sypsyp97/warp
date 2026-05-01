@@ -15,7 +15,6 @@ use super::{
     settings_page::{MatchData, PageType, SettingsPageMeta, SettingsPageViewHandle},
     SettingsSection,
 };
-use crate::auth::auth_manager::LoginGatedFeature;
 use crate::auth::UserUid;
 use crate::server::ids::ServerId;
 use crate::server::telemetry::TelemetryEvent;
@@ -91,13 +90,6 @@ pub enum TeamsPageAction {
         user_uid: UserUid,
         role: MembershipRole,
     },
-}
-
-impl From<&TeamsPageAction> for LoginGatedFeature {
-    fn from(_val: &TeamsPageAction) -> LoginGatedFeature {
-        // Slim fork: no actions are gated because none can be triggered.
-        "Unknown reason"
-    }
 }
 
 impl TryFrom<&TeamsPageAction> for TelemetryEvent {

@@ -5,7 +5,6 @@ use std::sync::Arc;
 use warpui::{Entity, ModelContext, SingletonEntity};
 
 use super::auth_state::AuthState;
-use super::auth_view_modal::AuthViewVariant;
 use super::AuthStateProvider;
 use crate::{send_telemetry_from_ctx, TelemetryEvent};
 use user_persistence::PersistedUser;
@@ -16,8 +15,6 @@ pub enum AuthManagerEvent {
     /// don't refresh the entire user, only their token.
     NeedsReauth,
 }
-
-pub type LoginGatedFeature = &'static str;
 
 /// AuthManager is a singleton model which manages the currently logged-in user's state.
 /// If you need to access the state, use `AuthStateProvider`.
@@ -67,17 +64,6 @@ impl AuthManager {
             send_telemetry_from_ctx!(TelemetryEvent::NeedsReauth, ctx);
             ctx.emit(AuthManagerEvent::NeedsReauth);
         }
-    }
-
-    /// Slim fork: every "login-gated" feature is permanently denied without
-    /// any modal popup, since there is no login flow. Callers continue to
-    /// invoke this; nothing happens.
-    pub fn attempt_login_gated_feature(
-        &self,
-        _feature: LoginGatedFeature,
-        _auth_view_variant: AuthViewVariant,
-        _ctx: &mut ModelContext<Self>,
-    ) {
     }
 
     /// Slim fork: only flip the local in-memory flag, no server round-trip.

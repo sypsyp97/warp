@@ -6,12 +6,7 @@ use crate::{
         facts::{AIFact, AIMemory},
     },
     appearance::Appearance,
-    auth::{
-        auth_manager::{AuthManager, LoginGatedFeature},
-        auth_state::AuthState,
-        auth_view_modal::AuthViewVariant,
-        AuthStateProvider,
-    },
+    auth::{auth_state::AuthState, AuthStateProvider},
     cloud_object::{
         model::{
             persistence::{CloudModel, CloudModelEvent},
@@ -408,18 +403,6 @@ impl DriveIndexAction {
             self,
             OpenTeamSettingsPage | ViewPlans { .. } | ManageBilling { .. }
         )
-    }
-}
-
-impl From<&DriveIndexAction> for LoginGatedFeature {
-    fn from(val: &DriveIndexAction) -> LoginGatedFeature {
-        use DriveIndexAction::*;
-        match val {
-            OpenTeamSettingsPage => "Open Team Settings",
-            ViewPlans { .. } => "View Plans",
-            ManageBilling { .. } => "Manage Billing",
-            _ => "Unknown reason",
-        }
     }
 }
 
@@ -4880,13 +4863,6 @@ impl DriveIndex {
         };
 
         if self.auth_state.is_anonymous_or_logged_out() {
-            AuthManager::handle(ctx).update(ctx, |auth_manager, ctx| {
-                auth_manager.attempt_login_gated_feature(
-                    "Share Object",
-                    AuthViewVariant::ShareRequirementCloseable,
-                    ctx,
-                )
-            });
             return;
         }
 
@@ -5210,13 +5186,6 @@ impl TypedActionView for DriveIndex {
     fn handle_action(&mut self, action: &DriveIndexAction, ctx: &mut ViewContext<Self>) {
         // Block anonymous users from performing team actions
         if self.auth_state.is_anonymous_or_logged_out() && action.blocked_for_anonymous_user() {
-            AuthManager::handle(ctx).update(ctx, |auth_manager, ctx| {
-                auth_manager.attempt_login_gated_feature(
-                    action.into(),
-                    AuthViewVariant::RequireLoginCloseable,
-                    ctx,
-                )
-            });
             return;
         }
 

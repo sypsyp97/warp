@@ -8,14 +8,13 @@
 //!     still compile).
 //!   * [`BillingAndUsagePageEvent`] / [`BillingAndUsagePageAction`] —
 //!     referenced from `settings_view::SettingsAction` routing and
-//!     event subscribers, plus from `From<&_> for LoginGatedFeature`.
+//!     event subscribers.
 //!   * The `BillingAndUsagePageView` struct + minimal trait impls.
 
 use super::{
     settings_page::{MatchData, PageType, SettingsPageMeta, SettingsPageViewHandle},
     SettingsSection,
 };
-use crate::auth::auth_manager::LoginGatedFeature;
 use crate::auth::UserUid;
 use crate::server::ids::ServerId;
 use crate::view_components::ToastFlavor;
@@ -109,17 +108,6 @@ pub enum BillingAndUsagePageAction {
     },
     DismissAmbientAgentTrialWidget,
     NavigateToByokSettings,
-}
-
-impl From<&BillingAndUsagePageAction> for LoginGatedFeature {
-    fn from(val: &BillingAndUsagePageAction) -> LoginGatedFeature {
-        use BillingAndUsagePageAction::*;
-        match val {
-            Upgrade { .. } => "Upgrade Plan",
-            GenerateStripeBillingPortalLink { .. } => "Generate Stripe Billing Portal Link",
-            _ => "Unknown reason",
-        }
-    }
 }
 
 pub struct BillingAndUsagePageView {

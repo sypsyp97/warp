@@ -1,7 +1,6 @@
 pub mod anonymous_id;
 pub mod auth_manager;
 pub mod auth_state;
-pub mod auth_view_modal;
 pub mod credentials;
 pub mod user;
 pub mod user_uid;
@@ -61,9 +60,7 @@ pub const fn is_slim_fork() -> bool {
     true
 }
 
-pub fn init(app: &mut AppContext) {
-    auth_view_modal::init(app);
-}
+pub fn init(_app: &mut AppContext) {}
 
 /// If the app has running processes or dirty objects, we'll show a confirmation modal before logging out.
 /// If the user aborts, the user will not be logged out.

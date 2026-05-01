@@ -1,6 +1,7 @@
 use warpui::{platform::WindowStyle, App};
 
 use crate::{
+    auth::auth_manager::AuthManager,
     cloud_object::model::persistence::CloudModel,
     network::NetworkStatus,
     server::{
