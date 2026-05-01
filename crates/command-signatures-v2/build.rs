@@ -1,9 +1,12 @@
 // We use `std::process::Command` directly here (not the `command` crate's
 // blocking wrapper) because the wrapper sets `CREATE_BREAKAWAY_FROM_JOB` on
-// Windows for app-process management. Build scripts run inside Cargo's job
-// hierarchy and may not have breakaway rights — that flag triggers
-// `ERROR_ACCESS_DENIED` (os error 5) when the build is itself launched
-// inside a restricted job (e.g. CI, sandboxed agents).
+// Windows for app-runtime process management. Build scripts run inside
+// Cargo's job hierarchy and may not have breakaway rights — that flag
+// triggers `ERROR_ACCESS_DENIED` (os error 5) when the build is itself
+// launched inside a restricted job (e.g. CI, sandboxed agents). The
+// "terminal flash" reason for the workspace's `disallowed_types` rule
+// doesn't apply to build scripts (no console attached).
+#![allow(clippy::disallowed_types)]
 use std::path::Path;
 use std::process::Command;
 
