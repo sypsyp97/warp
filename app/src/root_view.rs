@@ -85,8 +85,6 @@ use warpui::windowing::WindowManager;
 
 use crate::ai::llms::{LLMPreferences, LLMPreferencesEvent};
 use crate::ai::onboarding::{build_onboarding_models, current_onboarding_auth_state};
-use crate::pricing::{PricingInfoModel, PricingInfoModelEvent};
-use warp_graphql::billing::StripeSubscriptionPlan;
 
 use warpui::elements::{
     Border, ChildAnchor, OffsetPositioning, ParentAnchor, ParentElement, ParentOffsetBounds, Stack,
@@ -1817,12 +1815,6 @@ impl RootView {
         true
     }
 
-    fn build_plan_yearly_price_cents(ctx: &AppContext) -> Option<i32> {
-        PricingInfoModel::as_ref(ctx)
-            .plan_pricing(&StripeSubscriptionPlan::Build)
-            .map(|p| p.yearly_plan_price_per_month_usd_cents)
-    }
-
     fn create_agent_onboarding_view(
         ctx: &mut ViewContext<Self>,
     ) -> ViewHandle<AgentOnboardingView> {
@@ -1839,8 +1831,6 @@ impl RootView {
                 .ai_autonomy_settings()
                 .has_any_overrides();
 
-            let agent_price_cents = Self::build_plan_yearly_price_cents(ctx);
-
             let auth_state = current_onboarding_auth_state(ctx);
 
             AgentOnboardingView::new(
@@ -1851,25 +1841,11 @@ impl RootView {
                 workspace_enforces_autonomy,
                 FeatureFlag::AgentView.is_enabled(),
                 is_free_user_no_ai_experiment_active(ctx),
-                agent_price_cents,
+                None,
                 auth_state,
                 ctx,
             )
         });
-
-        // Subscribe to pricing updates so the badge stays current.
-        let onboarding_view_for_pricing = onboarding_view.clone();
-        ctx.subscribe_to_model(
-            &PricingInfoModel::handle(ctx),
-            move |_, _, event, ctx| match event {
-                PricingInfoModelEvent::PricingInfoUpdated => {
-                    let cents = Self::build_plan_yearly_price_cents(ctx);
-                    onboarding_view_for_pricing.update(ctx, |view, ctx| {
-                        view.set_agent_price_cents(cents, ctx);
-                    });
-                }
-            },
-        );
 
         let onboarding_view_clone = onboarding_view.clone();
         ctx.subscribe_to_model(

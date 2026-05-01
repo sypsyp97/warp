@@ -25,7 +25,6 @@ use crate::{
     notebooks::{
         editor::keys::NotebookKeybindings, manager::NotebookManager, notebook::NotebookView,
     },
-    pricing::PricingInfoModel,
     resource_center::TipsCompleted,
     search::files::model::FileSearchModel,
     server::{
@@ -153,7 +152,6 @@ fn initialize_app(app: &mut App) {
     app.add_singleton_model(|_| WorkspaceRegistry::new());
     app.add_singleton_model(UndoCloseStack::new);
     app.add_singleton_model(|_| IgnoredSuggestionsModel::new(vec![]));
-    app.add_singleton_model(|_| PricingInfoModel::new());
     app.add_singleton_model(AIDocumentModel::new);
     app.add_singleton_model(|_| History::new(vec![]));
     app.add_singleton_model(|_| GitHubAuthNotifier::new());
