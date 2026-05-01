@@ -37,23 +37,17 @@ pub trait AuthClient: 'static + Send + Sync {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 impl AuthClient for ServerApi {
     async fn get_or_refresh_access_token(&self) -> Result<AuthToken> {
-        // Slim fork: every authenticated request is gated on `is_logged_in()`,
-        // and the only credentials we ever construct in production are
-        // `Credentials::ApiKey`. The Firebase / SessionCookie variants still
-        // exist on the enum so tests and persistence types compile, but
-        // hitting them here means something tried to make a Warp cloud call
-        // we can't service.
+        // Slim fork: only `Credentials::ApiKey` is ever constructed in
+        // production. Everything else was a Warp-cloud login path that no
+        // longer exists.
         let Some(credentials) = self.auth_state.credentials() else {
             bail!("slim fork has no Warp account; authenticated request skipped");
         };
 
         match credentials {
             Credentials::ApiKey { key, .. } => Ok(AuthToken::ApiKey(key)),
-            Credentials::Firebase(_) | Credentials::SessionCookie => {
-                bail!("slim fork has no Firebase/SessionCookie auth path")
-            }
             #[cfg(any(test, feature = "integration_tests", feature = "skip_login"))]
-            Credentials::Test => Ok(AuthToken::NoAuth),
+            Credentials::Test => Ok(AuthToken::ApiKey(String::new())),
         }
     }
 
