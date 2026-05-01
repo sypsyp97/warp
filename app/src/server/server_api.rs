@@ -41,7 +41,6 @@ use crate::settings_view;
 
 use crate::ChannelState;
 
-use ::http::header::CONTENT_LENGTH;
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, FixedOffset};
 use instant::Instant;
@@ -746,35 +745,6 @@ impl ServerApi {
         Ok(())
     }
 
-    /// Sends an authenticated empty POST request to /client/login, which signals to the server
-    /// that the user is logged in.
-    pub async fn notify_login(&self) {
-        match self.get_or_refresh_access_token().await {
-            Ok(auth_token) => {
-                let url = format!("{}/client/login", ChannelState::server_root_url());
-                let mut request = self.client.post(&url);
-                if let Some(token) = auth_token.as_bearer_token() {
-                    request = request.bearer_auth(token);
-                }
-                request = request
-                    // Set the content-length header to 0 because the request has no body.
-                    // Otherwise, the server will return a 411 error. (In other cases, setting
-                    // content-type is sufficient (elides the content-length requirement), but
-                    // since this request has no body, it makes more sense to set content-length.
-                    .header(CONTENT_LENGTH, 0)
-                    .header(EXPERIMENT_ID_HEADER, self.auth_state.anonymous_id());
-
-                let response = request.send().await;
-                if let Err(err) = response {
-                    log::error!("Failed to send POST request to /client/login: {err:?}");
-                }
-            }
-            Err(err) => {
-                log::error!("Could not retrieve access token for notifying user login: {err:?}");
-            }
-        }
-    }
-
     /// Synchronously sends a [`TelemetryEvent`] to the Rudderstack API. Prefer not to call this
     /// directly, use the macros defined in crate::server::telemetry::macros. If telemetry is
     /// disabled, this is a no-op.
@@ -813,21 +783,6 @@ impl ServerApi {
         self.telemetry_api
             .flush_persisted_events_to_rudder(path, settings_snapshot)
             .await
-    }
-
-    /// Writes all queued [`TelemetryEvent`]s to a file, limiting the number of written
-    /// events to `max_events`. Events are queued using the [`send_telemetry_from_ctx`] or
-    /// [`send_telemetry_from_app_ctx`] macros. If telemetry is disabled, no events are written to
-    /// disk.
-    pub fn persist_telemetry_events(
-        &self,
-        _max_event_count: usize,
-        _settings_snapshot: PrivacySettingsSnapshot,
-    ) -> Result<()> {
-        // Slim fork: telemetry is permanently off — drop everything on
-        // the floor without ever creating a file.
-        let _ = warpui::telemetry::flush_events();
-        Ok(())
     }
 
     /// Hits the /ai/generate_input_suggestions endpoint to get the predicted next action, based on past context.
