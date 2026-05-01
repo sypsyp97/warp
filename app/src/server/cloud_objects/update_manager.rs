@@ -15,9 +15,7 @@ use crate::{
     cloud_object::{
         model::{
             actions::{ObjectAction, ObjectActionHistory, ObjectActionType, ObjectActions},
-            generic_string_model::{
-                GenericStringModel, GenericStringObjectId, Serializer, StringModel,
-            },
+            generic_string_model::GenericStringObjectId,
             persistence::{CloudModel, CloudModelEvent, UpdateSource},
             view::{CloudViewModel, Editor, EditorState},
         },
@@ -50,12 +48,8 @@ use crate::{
             OUT_OF_BAND_REQUEST_RETRY_STRATEGY, PERIODIC_POLL, PERIODIC_POLL_RETRY_STRATEGY,
         },
         server_api::object::{GuestIdentifier, ObjectClient},
-        sync_queue::{
-            CreationFailureReason, GenericStringObjectToCreate, QueueItem, SyncQueue,
-            SyncQueueEvent,
-        },
+        sync_queue::{CreationFailureReason, QueueItem, SyncQueue, SyncQueueEvent},
     },
-    settings::cloud_preferences::Preference,
     util::sync::Condition,
     workflows::{
         workflow::Workflow,
@@ -136,7 +130,6 @@ pub struct ObjectOperationResult {
 #[derive(Debug)]
 pub enum UpdateManagerEvent {
     ObjectOperationComplete { result: ObjectOperationResult },
-    CloudPreferencesUpdated { updated: Vec<Preference> },
     MCPGalleryUpdated { templates: Vec<MCPGalleryTemplate> },
     AmbientTaskUpdated { timestamp: DateTime<Utc> },
 }
@@ -179,20 +172,6 @@ pub struct GetCloudObjectResponse {
     pub object: ServerCloudObject,
     pub descendants: Vec<ServerCloudObject>,
     pub action_histories: Vec<ObjectActionHistory>,
-}
-
-#[derive(Debug)]
-pub struct GenericStringObjectInput<T, S>
-where
-    T: StringModel<
-            CloudObjectType = GenericCloudObject<GenericStringObjectId, GenericStringModel<T, S>>,
-        > + 'static,
-    S: Serializer<T> + 'static,
-{
-    pub id: ClientId,
-    pub model: GenericStringModel<T, S>,
-    pub initial_folder_id: Option<SyncId>,
-    pub entrypoint: CloudObjectEventEntrypoint,
 }
 
 /// The UpdateManager is responsible for delegating work
@@ -864,7 +843,6 @@ impl UpdateManager {
             },
         ];
 
-        let mut updated_preferences: Vec<Preference> = Vec::new();
         // Handle generic string object updates.
         for (format, objects) in response.updated_generic_string_objects {
             match format {
@@ -873,9 +851,6 @@ impl UpdateManager {
                         .iter()
                         .filter_map(|obj| {
                             let server_obj: Option<&ServerPreference> = obj.into();
-                            if let Some(server_obj) = server_obj {
-                                updated_preferences.push(server_obj.model.string_model.clone());
-                            }
                             server_obj.cloned()
                         })
                         .collect::<Vec<_>>();
@@ -1099,12 +1074,6 @@ impl UpdateManager {
         if !response.mcp_gallery.is_empty() {
             ctx.emit(UpdateManagerEvent::MCPGalleryUpdated {
                 templates: response.mcp_gallery,
-            });
-        }
-
-        if !updated_preferences.is_empty() {
-            ctx.emit(UpdateManagerEvent::CloudPreferencesUpdated {
-                updated: updated_preferences,
             });
         }
     }
@@ -1343,13 +1312,6 @@ impl UpdateManager {
         // Update sqlite.
         let cloud_model = CloudModel::as_ref(ctx);
         self.save_in_memory_object_to_sqlite(cloud_model, &uid);
-
-        if let ServerCloudObject::Preference(preference) = &cloud_object {
-            let preference = preference.model.string_model.clone();
-            ctx.emit(UpdateManagerEvent::CloudPreferencesUpdated {
-                updated: vec![preference],
-            });
-        }
     }
 
     /// Compare incoming metadata_ts and in_memory metadata_ts to determine whether to accept a new incoming metadata
@@ -3455,83 +3417,6 @@ impl UpdateManager {
             initiated_by,
             ctx,
         );
-    }
-
-    /// Bulk creates a list of generic string objects, all in a single
-    /// sqllite write and server api call.  More efficient than calling
-    /// create_object for each object.
-    ///
-    /// Note that if the bulk creation request fails, the client will end up retrying
-    /// object creation one write and request at a time.
-    pub fn bulk_create_generic_string_objects<S, T>(
-        &mut self,
-        owner: Owner,
-        inputs: Vec<GenericStringObjectInput<T, S>>,
-        ctx: &mut ModelContext<Self>,
-    ) where
-        T: StringModel<
-                CloudObjectType = GenericCloudObject<
-                    GenericStringObjectId,
-                    GenericStringModel<T, S>,
-                >,
-            > + 'static,
-        S: Serializer<T> + 'static,
-    {
-        let mut objects = Vec::new();
-        let mut sync_queue_objects = Vec::new();
-        for input in inputs {
-            let object_id = SyncId::ClientId(input.id);
-            let serialized_model = input.model.serialized().into();
-            let uniqueness_key = input.model.string_model.uniqueness_key();
-
-            // Update in-memory model.
-            CloudModel::handle(ctx).update(ctx, |cloud_model, ctx| {
-                let object =
-                GenericCloudObject::<GenericStringObjectId, GenericStringModel<T, S>>::new_local(
-                    input.model,
-                    owner,
-                    input.initial_folder_id,
-                    input.id,
-                );
-                cloud_model.create_object(object_id, object, ctx);
-            });
-
-            let cloud_model = CloudModel::as_ref(ctx);
-            if let Some(object) = cloud_model
-                .get_object_of_type::<GenericStringObjectId, GenericStringModel<T, S>>(&object_id)
-            {
-                objects.push(object.clone());
-            }
-
-            sync_queue_objects.push(GenericStringObjectToCreate {
-                id: input.id,
-                format: T::model_format(),
-                serialized_model,
-                initial_folder_id: input.initial_folder_id,
-                entrypoint: input.entrypoint,
-                uniqueness_key,
-
-                // When adding the initiated_by parameter to this function call, InitiatedBy::User was set as a default value.
-                // initiated_by values currently do not propagate through the sync queue for bulk create operations, but can be added in the future
-                initiated_by: InitiatedBy::User,
-            });
-        }
-
-        // Update sqlite with a single bulk request
-        self.save_to_db(vec![GenericStringModel::<T, S>::bulk_upsert_event(
-            &objects,
-        )]);
-
-        // Populate sync queue with a single bulk request
-        SyncQueue::handle(ctx).update(ctx, |sync_queue, ctx| {
-            sync_queue.enqueue(
-                QueueItem::BulkCreateGenericStringObjects {
-                    owner,
-                    objects: sync_queue_objects,
-                },
-                ctx,
-            )
-        });
     }
 
     /// Generic function for creating a new cloud object with a given model.

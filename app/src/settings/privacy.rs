@@ -18,7 +18,6 @@ use settings::{
 
 use serde::{Deserialize, Serialize};
 
-use super::cloud_preferences_syncer::CloudPreferencesSyncer;
 use crate::workspaces::workspace::EnterpriseSecretRegex;
 
 pub trait RegexDisplayInfo {
@@ -571,16 +570,14 @@ impl PrivacySettings {
             _ => {
                 log::info!(
                     "Warp Drive privacy preferences are not set, syncing local PrivacySettings values to \
-                    WarpDrivePrivacySettings and cloud. telemetry={}, cloud_conversation_storage={}",
+                    WarpDrivePrivacySettings. telemetry={}, cloud_conversation_storage={}",
                     self.is_telemetry_enabled,
                     self.is_cloud_conversation_storage_enabled
                 );
-                // First, ensure WarpDrivePrivacySettings (the define_settings_group model)
+                // Ensure WarpDrivePrivacySettings (the define_settings_group model)
                 // reflects the actual PrivacySettings in-memory values. These may differ
                 // because WarpDrivePrivacySettings defaults to `true` for both settings,
-                // while the user may have changed them to `false` via PrivacySettings before
-                // signing up. Without this step, maybe_sync_local_prefs_to_cloud would read
-                // the stale WarpDrivePrivacySettings defaults and push those to the cloud.
+                // while the user may have changed them to `false` via PrivacySettings.
                 WarpDrivePrivacySettings::handle(ctx).update(ctx, |settings, ctx| {
                     report_if_error!(settings
                         .is_telemetry_enabled
@@ -588,15 +585,6 @@ impl PrivacySettings {
                     report_if_error!(settings
                         .is_cloud_conversation_storage_enabled
                         .set_value(self.is_cloud_conversation_storage_enabled, ctx));
-                });
-                CloudPreferencesSyncer::handle(ctx).update(ctx, |syncer, ctx| {
-                    syncer.maybe_sync_local_prefs_to_cloud(
-                        vec![
-                            IsTelemetryEnabled::storage_key().to_string(),
-                            IsCloudConversationStorageEnabled::storage_key().to_string(),
-                        ],
-                        ctx,
-                    );
                 });
             }
         }

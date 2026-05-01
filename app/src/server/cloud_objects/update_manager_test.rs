@@ -21,16 +21,15 @@ use crate::{
                 ObjectActions,
             },
             generic_string_model::GenericStringObjectId,
-            json_model::JsonSerializer,
             persistence::{CloudModel, CloudModelEvent, UpdateSource},
         },
-        BulkCreateCloudObjectResult, CloudModelType, CloudObjectEventEntrypoint, CloudObjectGuest,
-        CloudObjectLocation, ConflictStatus, CreateCloudObjectResult, CreatedCloudObject,
-        GenericCloudObject, GenericStringObjectFormat, JsonObjectType, ObjectDeleteResult,
-        ObjectIdType, ObjectMetadataUpdateResult, ObjectPermissionsUpdateData, ObjectType, Owner,
-        Revision, RevisionAndLastEditor, ServerCloudObject, ServerFolder, ServerGuestSubject,
-        ServerObject, ServerObjectGuest, ServerPreference, ServerWorkflow, ServerWorkflowEnum,
-        Space, UpdateCloudObjectResult,
+        CloudModelType, CloudObjectEventEntrypoint, CloudObjectGuest, CloudObjectLocation,
+        ConflictStatus, CreateCloudObjectResult, CreatedCloudObject, GenericCloudObject,
+        GenericStringObjectFormat, JsonObjectType, ObjectDeleteResult, ObjectIdType,
+        ObjectMetadataUpdateResult, ObjectPermissionsUpdateData, ObjectType, Owner, Revision,
+        RevisionAndLastEditor, ServerCloudObject, ServerFolder, ServerGuestSubject, ServerObject,
+        ServerObjectGuest, ServerPreference, ServerWorkflow, ServerWorkflowEnum, Space,
+        UpdateCloudObjectResult,
     },
     drive::{
         folders::{CloudFolder, CloudFolderModel, FolderId},
@@ -46,8 +45,8 @@ use crate::{
                 create_update_manager_struct, initialize_app, mock_server_api, UpdateManagerStruct,
             },
             update_manager::{
-                get_duplicate_object_name, FetchSingleObjectOption, GenericStringObjectInput,
-                InitiatedBy, ServerMetadata, ServerNotebook, ServerPermissions,
+                get_duplicate_object_name, FetchSingleObjectOption, InitiatedBy, ServerMetadata,
+                ServerNotebook, ServerPermissions,
             },
         },
         ids::{ClientId, HashableId, ObjectUid, ServerId, ServerIdAndType, SyncId, ToServerId},
@@ -1231,164 +1230,6 @@ fn test_create_sets_editor() {
             Some(TEST_USER_UID),
         );
     });
-}
-
-#[test]
-fn test_bulk_create_generic_string_objects() {
-    App::test(Assets, |mut app| async move {
-        initialize_app(&mut app);
-        let mut server_api = mock_server_api();
-        let client_id_1 = ClientId::new();
-        let object_id_1: GenericStringObjectId = 123.into();
-        let client_id_2 = ClientId::new();
-        let object_id_2: GenericStringObjectId = 456.into();
-
-        server_api
-            .expect_bulk_create_generic_string_objects()
-            .times(1)
-            .return_once(move |_, _| {
-                Ok(BulkCreateCloudObjectResult::Success {
-                    created_cloud_objects: vec![
-                        CreatedCloudObject {
-                            client_id: client_id_1,
-                            revision_and_editor: RevisionAndLastEditor {
-                                revision: Revision::now(),
-                                last_editor_uid: Some("34jkaosdfj".to_string()),
-                            },
-                            metadata_ts: DateTime::<Utc>::default().into(),
-                            server_id_and_type: ServerIdAndType {
-                                id: object_id_1.to_server_id(),
-                                id_type: ObjectIdType::GenericStringObject,
-                            },
-                            creator_uid: None,
-                            permissions: ServerPermissions::mock_personal(),
-                        },
-                        CreatedCloudObject {
-                            client_id: client_id_2,
-                            revision_and_editor: RevisionAndLastEditor {
-                                revision: Revision::now(),
-                                last_editor_uid: Some("34jkaosdfk".to_string()),
-                            },
-                            server_id_and_type: ServerIdAndType {
-                                id: object_id_2.to_server_id(),
-                                id_type: ObjectIdType::GenericStringObject,
-                            },
-                            metadata_ts: DateTime::<Utc>::default().into(),
-                            creator_uid: None,
-                            permissions: ServerPermissions::mock_personal(),
-                        },
-                    ],
-                })
-            });
-
-        let update_manager_struct = create_update_manager_struct(&mut app, Arc::new(server_api));
-
-        let inputs = vec![
-            GenericStringObjectInput::<Preference, JsonSerializer> {
-                id: client_id_1,
-                model: CloudPreferenceModel::new(
-                    Preference::new(
-                        "storage_key_1".to_string(),
-                        "{\"test_key\": \"test_value_1\"}",
-                        SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-                    )
-                    .expect("error creating preference"),
-                ),
-                initial_folder_id: None,
-                entrypoint: CloudObjectEventEntrypoint::Unknown,
-            },
-            GenericStringObjectInput::<Preference, JsonSerializer> {
-                id: client_id_2,
-                model: CloudPreferenceModel::new(
-                    Preference::new(
-                        "storage_key_2".to_string(),
-                        "{\"test_key\": \"test_value_2\"}",
-                        SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-                    )
-                    .expect("error creating preference"),
-                ),
-                initial_folder_id: None,
-                entrypoint: CloudObjectEventEntrypoint::Unknown,
-            },
-        ];
-
-        // Bulk create objects
-        update_manager_struct
-            .update_manager
-            .update(&mut app, move |update_manager, ctx| {
-                update_manager.bulk_create_generic_string_objects(
-                    Owner::mock_current_user(),
-                    inputs,
-                    ctx,
-                );
-            });
-
-        // Make sure that we won't block quitting even though there are pending changes at this point.
-        CloudModel::handle(&app).read(&app, |cloud_model, _| {
-            assert_eq!(cloud_model.num_unsaved_objects(), 2);
-            assert_eq!(
-                cloud_model.num_unsaved_objects_to_warn_about_before_quitting(),
-                0
-            );
-        });
-
-        // complete the object create request
-        SyncQueue::handle(&app)
-            .update(&mut app, |sync_queue, ctx| {
-                ctx.await_spawned_future(sync_queue.spawned_futures()[0])
-            })
-            .await;
-
-        let events = db_events(&update_manager_struct);
-
-        assert_eq!(events.len(), 7);
-        // we created two items in bulk in the db
-        assert!(matches!(
-            &events[0],
-            ModelEvent::UpsertGenericStringObjects { .. }
-        ));
-
-        // when we got the correct responses back from the server,
-        // we updated the db with the server id, for each object
-        assert!(matches!(
-            &events[1],
-            ModelEvent::UpdateObjectAfterServerCreation {
-                client_id: _,
-                server_creation_info: _
-            }
-        ));
-        assert!(matches!(
-            &events[2],
-            ModelEvent::MarkObjectAsSynced {
-                hashed_sqlite_id: _,
-                revision_and_editor: _,
-                metadata_ts: _,
-            }
-        ));
-        assert!(matches!(
-            &events[3],
-            ModelEvent::SyncObjectActions { actions_to_sync: _ }
-        ));
-        assert!(matches!(
-            &events[4],
-            ModelEvent::UpdateObjectAfterServerCreation {
-                client_id: _,
-                server_creation_info: _
-            }
-        ));
-        assert!(matches!(
-            &events[5],
-            ModelEvent::MarkObjectAsSynced {
-                hashed_sqlite_id: _,
-                revision_and_editor: _,
-                metadata_ts: _,
-            }
-        ));
-        assert!(matches!(
-            &events[6],
-            ModelEvent::SyncObjectActions { actions_to_sync: _ }
-        ));
-    })
 }
 
 #[test]
