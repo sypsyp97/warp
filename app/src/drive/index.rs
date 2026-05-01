@@ -48,11 +48,6 @@ use crate::{
 
 use super::{
     cloud_object_naming_dialog::CloudObjectNamingDialog,
-    drive_helpers::{
-        has_feature_gated_anonymous_user_reached_env_var_limit,
-        has_feature_gated_anonymous_user_reached_notebook_limit,
-        has_feature_gated_anonymous_user_reached_workflow_limit,
-    },
     empty_trash_confirmation_dialog::{EmptyTrashConfirmationDialog, EmptyTrashConfirmationEvent},
     folders::CloudFolder,
     items::{
@@ -3358,10 +3353,6 @@ impl DriveIndex {
 
         match object_type {
             DriveObjectType::Notebook { .. } => {
-                if has_feature_gated_anonymous_user_reached_notebook_limit(ctx) {
-                    return;
-                }
-
                 // If the new notebook is being created in the team space, check if the team has
                 // reached the limit for notebooks.
                 if let Space::Team { team_uid } = space {
@@ -3391,10 +3382,6 @@ impl DriveIndex {
                 }
             }
             DriveObjectType::EnvVarCollection => {
-                if has_feature_gated_anonymous_user_reached_env_var_limit(ctx) {
-                    return;
-                }
-
                 ctx.emit(DriveIndexEvent::CreateEnvVarCollection {
                     space,
                     title,
@@ -3402,10 +3389,6 @@ impl DriveIndex {
                 })
             }
             DriveObjectType::Workflow => {
-                if has_feature_gated_anonymous_user_reached_workflow_limit(ctx) {
-                    return;
-                }
-
                 ctx.emit(DriveIndexEvent::CreateWorkflow {
                     space,
                     title,
@@ -3415,9 +3398,6 @@ impl DriveIndex {
                 })
             }
             DriveObjectType::AgentModeWorkflow => {
-                if has_feature_gated_anonymous_user_reached_workflow_limit(ctx) {
-                    return;
-                }
 
                 ctx.emit(DriveIndexEvent::CreateWorkflow {
                     space,
@@ -3573,28 +3553,7 @@ impl DriveIndex {
                         _ => (),
                     }
                 }
-                Space::Personal => match cloud_object_type_and_id {
-                    CloudObjectTypeAndId::Notebook(_) => {
-                        if has_feature_gated_anonymous_user_reached_notebook_limit(ctx) {
-                            return;
-                        }
-                    }
-                    CloudObjectTypeAndId::Workflow(_) => {
-                        if has_feature_gated_anonymous_user_reached_workflow_limit(ctx) {
-                            return;
-                        }
-                    }
-                    CloudObjectTypeAndId::GenericStringObject {
-                        object_type:
-                            GenericStringObjectFormat::Json(JsonObjectType::EnvVarCollection),
-                        id: _,
-                    } => {
-                        if has_feature_gated_anonymous_user_reached_env_var_limit(ctx) {
-                            return;
-                        }
-                    }
-                    _ => {}
-                },
+                Space::Personal => (),
                 // We have to rely on server checks here, since the client doesn't know how many
                 // objects are in the owning drive.
                 Space::Shared => (),
@@ -4923,10 +4882,6 @@ impl TypedActionView for DriveIndex {
                 content,
                 is_for_agent_mode,
             } => {
-                if has_feature_gated_anonymous_user_reached_workflow_limit(ctx) {
-                    return;
-                }
-
                 ctx.emit(DriveIndexEvent::CreateWorkflow {
                     space: *space,
                     title: None,

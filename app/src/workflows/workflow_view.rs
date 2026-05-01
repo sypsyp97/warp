@@ -26,7 +26,6 @@ use crate::{
     },
     drive::{
         cloud_object_styling::warp_drive_icon_color,
-        drive_helpers::has_feature_gated_anonymous_user_reached_workflow_limit,
         items::WarpDriveItemId,
         sharing::{ContentEditability, ShareableObject, SharingAccessLevel},
         workflows::{
@@ -2031,10 +2030,6 @@ impl WorkflowView {
     }
 
     fn untrash_object(&self, ctx: &mut ViewContext<Self>) {
-        if has_feature_gated_anonymous_user_reached_workflow_limit(ctx) {
-            return;
-        }
-
         UpdateManager::handle(ctx).update(ctx, move |update_manager, ctx| {
             update_manager.untrash_object(
                 CloudObjectTypeAndId::from_id_and_type(self.workflow_id, ObjectType::Workflow),
