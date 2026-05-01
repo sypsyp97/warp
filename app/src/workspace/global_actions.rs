@@ -79,10 +79,6 @@ pub fn init_global_actions(app: &mut AppContext) {
         "workspace:toggle_debug_network_status",
         toggle_debug_network_status,
     );
-    app.add_global_action(
-        "workspace:debug_create_anonymous_user",
-        create_anonymous_user,
-    );
     app.add_global_action("workspace:open_repository", open_repository);
     app.add_global_action("app:undo_close", undo_close);
     app.add_global_action("app:maybe_log_out", trigger_maybe_log_out);
@@ -153,11 +149,6 @@ fn toggle_debug_network_status(_: &(), ctx: &mut AppContext) {
         }
         me.reachability_changed(new_is_reachable, ctx)
     });
-}
-
-fn create_anonymous_user(_: &(), _ctx: &mut AppContext) {
-    // Slim fork: no Warp account, no anonymous user creation.
-    log::info!("workspace:debug_create_anonymous_user is a no-op in the slim fork");
 }
 
 /// Reopens the last closed item (window or tab).
