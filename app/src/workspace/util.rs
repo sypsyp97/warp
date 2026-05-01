@@ -112,8 +112,6 @@ pub struct WorkspaceState {
     pub is_notification_mailbox_open: bool,
     pub is_agent_management_view_open: bool,
     pub is_codex_modal_open: bool,
-    pub is_cloud_agent_capacity_modal_open: bool,
-    pub is_free_tier_limit_hit_modal_open: bool,
     pub is_tab_config_params_modal_open: bool,
     pub is_session_config_modal_open: bool,
     pub is_new_worktree_modal_open: bool,
@@ -149,8 +147,6 @@ impl WorkspaceState {
             || self.is_suggested_rule_modal_open
             || self.is_suggested_agent_mode_workflow_modal_open
             || self.is_codex_modal_open
-            || self.is_cloud_agent_capacity_modal_open
-            || self.is_free_tier_limit_hit_modal_open
             || self.is_tab_config_params_modal_open
             || self.is_session_config_modal_open
             || self.is_new_worktree_modal_open
@@ -158,7 +154,6 @@ impl WorkspaceState {
             || {
                 let one_time_modal = OneTimeModalModel::as_ref(app);
                 one_time_modal.is_oz_launch_modal_open()
-                    || one_time_modal.is_build_plan_migration_modal_open()
             }
     }
 
@@ -187,8 +182,6 @@ impl WorkspaceState {
         self.is_suggested_rule_modal_open = false;
         self.is_suggested_agent_mode_workflow_modal_open = false;
         self.is_codex_modal_open = false;
-        self.is_cloud_agent_capacity_modal_open = false;
-        self.is_free_tier_limit_hit_modal_open = false;
         self.is_tab_config_params_modal_open = false;
         self.is_session_config_modal_open = false;
         self.is_new_worktree_modal_open = false;

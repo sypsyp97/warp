@@ -2747,12 +2747,6 @@ pub enum TelemetryEvent {
     CodexModalOpened,
     /// Emitted when the user clicks "Use Codex" in the Codex modal.
     CodexModalUseCodexClicked,
-    /// Emitted when the cloud agent capacity modal is opened.
-    CloudAgentCapacityModalOpened,
-    /// Emitted when the cloud agent capacity modal is dismissed.
-    CloudAgentCapacityModalDismissed,
-    /// Emitted when the user clicks the upgrade button in the cloud agent capacity modal.
-    CloudAgentCapacityModalUpgradeClicked,
     /// Emitted when a RequestComputerUse action is approved (manually or auto-executed).
     ComputerUseApproved {
         conversation_id: AIConversationId,
@@ -2766,12 +2760,6 @@ pub enum TelemetryEvent {
     },
     /// Emitted when a warp://linear deeplink is opened.
     LinearIssueLinkOpened,
-    /// Emitted when the free tier limit hit interstitial is displayed.
-    FreeTierLimitHitInterstitialDisplayed,
-    /// Emitted when the user clicks the "Upgrade" button in the free tier limit hit interstitial.
-    FreeTierLimitHitInterstitialUpgradeButtonClicked,
-    /// Emitted when the user clicks close on the free tier limit hit interstitial.
-    FreeTierLimitHitInterstitialClosed,
     /// Emitted when the remote server binary check completes.
     RemoteServerBinaryCheck {
         found: bool,
@@ -4479,9 +4467,6 @@ impl TelemetryEvent {
             TelemetryEvent::CodexModalOpened => None,
             TelemetryEvent::CodexModalUseCodexClicked => None,
             TelemetryEvent::LinearIssueLinkOpened => None,
-            TelemetryEvent::CloudAgentCapacityModalOpened => None,
-            TelemetryEvent::CloudAgentCapacityModalDismissed => None,
-            TelemetryEvent::CloudAgentCapacityModalUpgradeClicked => None,
             TelemetryEvent::ComputerUseApproved {
                 conversation_id,
                 is_autoexecuted,
@@ -4498,9 +4483,6 @@ impl TelemetryEvent {
                 "conversation_id": conversation_id,
                 "ambient_agent_task_id": ambient_agent_task_id.map(|id| id.to_string()),
             })),
-            TelemetryEvent::FreeTierLimitHitInterstitialDisplayed => None,
-            TelemetryEvent::FreeTierLimitHitInterstitialUpgradeButtonClicked => None,
-            TelemetryEvent::FreeTierLimitHitInterstitialClosed => None,
             TelemetryEvent::LoginButtonClicked { source }
             | TelemetryEvent::LoginLaterButtonClicked { source }
             | TelemetryEvent::LoginLaterConfirmationButtonClicked { source }
@@ -4956,14 +4938,8 @@ impl TelemetryEvent {
             | TelemetryEvent::CodexModalOpened
             | TelemetryEvent::CodexModalUseCodexClicked
             | TelemetryEvent::LinearIssueLinkOpened
-            | TelemetryEvent::CloudAgentCapacityModalOpened
-            | TelemetryEvent::CloudAgentCapacityModalDismissed
-            | TelemetryEvent::CloudAgentCapacityModalUpgradeClicked
             | TelemetryEvent::ComputerUseApproved { .. }
             | TelemetryEvent::ComputerUseCancelled { .. }
-            | TelemetryEvent::FreeTierLimitHitInterstitialDisplayed
-            | TelemetryEvent::FreeTierLimitHitInterstitialUpgradeButtonClicked
-            | TelemetryEvent::FreeTierLimitHitInterstitialClosed
             | TelemetryEvent::RemoteServerBinaryCheck { .. }
             | TelemetryEvent::RemoteServerInstallation { .. }
             | TelemetryEvent::RemoteServerInitialization { .. }
@@ -5515,19 +5491,9 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ToggleUseAgentToolbarSetting { .. } => EnablementState::Always,
             Self::CodexModalOpened | Self::CodexModalUseCodexClicked => EnablementState::Always,
             Self::LinearIssueLinkOpened => EnablementState::Always,
-            Self::CloudAgentCapacityModalOpened
-            | Self::CloudAgentCapacityModalDismissed
-            | Self::CloudAgentCapacityModalUpgradeClicked => {
-                EnablementState::Flag(FeatureFlag::CloudMode)
-            }
             Self::ComputerUseApproved | Self::ComputerUseCancelled => {
                 EnablementState::Flag(FeatureFlag::AgentModeComputerUse)
             }
-            Self::FreeTierLimitHitInterstitialDisplayed { .. } => EnablementState::Always,
-            Self::FreeTierLimitHitInterstitialUpgradeButtonClicked { .. } => {
-                EnablementState::Always
-            }
-            Self::FreeTierLimitHitInterstitialClosed { .. } => EnablementState::Always,
             Self::RemoteServerBinaryCheck
             | Self::RemoteServerInstallation
             | Self::RemoteServerInitialization
@@ -6059,22 +6025,8 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::CodexModalOpened => "CodexModal.Opened",
             Self::CodexModalUseCodexClicked => "CodexModal.UseCodexClicked",
             Self::LinearIssueLinkOpened => "Linear.IssueLinkOpened",
-            Self::CloudAgentCapacityModalOpened => "AmbientAgent.ConcurrencyModal.Opened",
-            Self::CloudAgentCapacityModalDismissed => "AmbientAgent.ConcurrencyModal.Dismissed",
-            Self::CloudAgentCapacityModalUpgradeClicked => {
-                "AmbientAgent.ConcurrencyModal.UpgradeClicked"
-            }
             Self::ComputerUseApproved => "ComputerUse.Approved",
             Self::ComputerUseCancelled => "ComputerUse.Cancelled",
-            Self::FreeTierLimitHitInterstitialDisplayed { .. } => {
-                "FreeTierLimitHitInterstitial.Displayed"
-            }
-            Self::FreeTierLimitHitInterstitialUpgradeButtonClicked { .. } => {
-                "FreeTierLimitHitInterstitial.UpgradeButtonClicked"
-            }
-            Self::FreeTierLimitHitInterstitialClosed { .. } => {
-                "FreeTierLimitHitInterstitial.Closed"
-            }
         }
     }
 
@@ -6922,26 +6874,10 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::LinearIssueLinkOpened => {
                 "User opened a warp://linear deeplink to work on an issue"
             }
-            Self::CloudAgentCapacityModalOpened => "User opened the cloud agent capacity modal",
-            Self::CloudAgentCapacityModalDismissed => {
-                "User dismissed the cloud agent capacity modal"
-            }
-            Self::CloudAgentCapacityModalUpgradeClicked => {
-                "User clicked the upgrade button in the cloud agent capacity modal"
-            }
             Self::ComputerUseApproved => {
                 "A RequestComputerUse action was approved (manually or auto-executed)"
             }
             Self::ComputerUseCancelled => "A RequestComputerUse action was cancelled/rejected",
-            Self::FreeTierLimitHitInterstitialDisplayed { .. } => {
-                "The free tier limit hit interstitial was displayed"
-            }
-            Self::FreeTierLimitHitInterstitialUpgradeButtonClicked { .. } => {
-                "User clicked the 'Upgrade' button in the free tier limit hit interstitial"
-            }
-            Self::FreeTierLimitHitInterstitialClosed { .. } => {
-                "User closed the free tier limit hit interstitial"
-            }
             Self::RemoteServerBinaryCheck => {
                 "Remote server binary check completed (found, not found, or error)"
             }

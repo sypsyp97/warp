@@ -66,9 +66,6 @@ const WARP_ERROR_CODE_HEADER: &str = "X-Warp-Error-Code";
 /// So we use this to distinguish between the two cases.
 const WARP_ERROR_CODE_OUT_OF_CREDITS: &str = "OUT_OF_CREDITS";
 
-/// Error code indicating the user has reached their cloud agent concurrency limit.
-const WARP_ERROR_CODE_AT_CAPACITY: &str = "AT_CLOUD_AGENT_CAPACITY";
-
 /// Header used to communicate the source of an agent run (e.g. "CLI", "GITHUB_ACTION").
 pub(crate) const AGENT_SOURCE_HEADER: &str = "X-Oz-Api-Source";
 
@@ -98,14 +95,6 @@ pub struct ClientError {
     // See REMOTE-666
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth_url: Option<String>,
-}
-
-/// Error when the user is at their cloud agent concurrency limit.
-#[derive(thiserror::Error, Debug, Clone, Deserialize)]
-#[error("{error} (running agents: {running_agents})")]
-pub struct CloudAgentCapacityError {
-    pub error: String,
-    pub running_agents: i32,
 }
 
 #[derive(Deserialize, Debug)]
@@ -677,11 +666,6 @@ impl ServerApi {
     /// Converts a non-success public API response into the most specific client error available.
     async fn error_from_response(response: http_client::Response) -> anyhow::Error {
         let status = response.status();
-        let is_at_capacity = response
-            .headers()
-            .get(WARP_ERROR_CODE_HEADER)
-            .and_then(|v| v.to_str().ok())
-            == Some(WARP_ERROR_CODE_AT_CAPACITY);
         let is_out_of_credits = response
             .headers()
             .get(WARP_ERROR_CODE_HEADER)
@@ -691,14 +675,6 @@ impl ServerApi {
         // Get the response text first since we may need to try multiple deserializations.
         let response_text = response.text().await.unwrap_or_default();
 
-        // Check for AT_CAPACITY error code header.
-        if is_at_capacity {
-            if let Ok(capacity_error) =
-                serde_json::from_str::<CloudAgentCapacityError>(&response_text)
-            {
-                return capacity_error.into();
-            }
-        }
         if status == StatusCode::TOO_MANY_REQUESTS && is_out_of_credits {
             return AIApiError::QuotaLimit.into();
         }

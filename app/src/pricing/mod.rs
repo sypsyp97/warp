@@ -51,6 +51,9 @@ impl PricingInfoModel {
             .map(|pricing| pricing.monthly_plan_price_per_month_usd_cents as f64 / 100.0)
     }
 
+    // Slim fork: orphaned after the three pricing/quota modals were deleted.
+    // PricingInfoModel itself is removed in the follow-up task.
+    #[allow(dead_code)]
     pub fn addon_credits_options(&self) -> Option<&[AddonCreditsOption]> {
         self.pricing_info
             .as_ref()

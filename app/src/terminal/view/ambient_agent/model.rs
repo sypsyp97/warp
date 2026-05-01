@@ -28,7 +28,7 @@ use crate::server::ids::{ServerId, SyncId};
 use crate::server::server_api::ai::{
     AgentConfigSnapshot, AmbientAgentTaskState, AttachmentInput, SpawnAgentRequest,
 };
-use crate::server::server_api::{AIApiError, CloudAgentCapacityError, ServerApiProvider};
+use crate::server::server_api::{AIApiError, ServerApiProvider};
 use crate::terminal::view::ambient_agent::SetupCommandState;
 
 use super::AmbientAgentProgressUIState;
@@ -682,15 +682,9 @@ impl AmbientAgentViewModel {
                             ctx.emit(AmbientAgentViewModelEvent::SessionReady { session_id });
                         }
                     }
-                    AmbientAgentEvent::AtCapacity => {
-                        if ignore_events {
-                            return;
-                        }
-
-                        if matches!(me.status, Status::WaitingForSession { .. }) {
-                            ctx.emit(AmbientAgentViewModelEvent::ShowCloudAgentCapacityModal);
-                        }
-                    }
+                    // Slim fork: AtCapacity required the cloud-agent-capacity modal,
+                    // which can never fire here. Just drop the event.
+                    AmbientAgentEvent::AtCapacity => {}
                     AmbientAgentEvent::TimedOut => {}
                 },
                 Err(err) => {
@@ -717,11 +711,6 @@ impl AmbientAgentViewModel {
                             );
                             return;
                         }
-                    }
-                    if let Some(capacity_error) = err.downcast_ref::<CloudAgentCapacityError>() {
-                        me.handle_spawn_error(capacity_error.error.clone(), ctx);
-                        ctx.emit(AmbientAgentViewModelEvent::ShowCloudAgentCapacityModal);
-                        return;
                     }
                     if let Some(ai_api_error) = err.downcast_ref::<AIApiError>() {
                         match ai_api_error {
@@ -938,8 +927,6 @@ pub enum AmbientAgentViewModelEvent {
     Failed {
         error_message: String,
     },
-    /// Request to show the cloud agent concurrency/capacity modal.
-    ShowCloudAgentCapacityModal,
     /// Request to show the cloud agent AI credits modal.
     ShowAICreditModal,
     /// The ambient agent needs GitHub authentication.
