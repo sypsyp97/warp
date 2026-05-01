@@ -16,7 +16,7 @@ use uuid::Uuid;
 use super::{
     graphql::GraphQLError,
     ids::{ClientId, HashableId, ObjectUid, ServerId, SyncId, ToServerId},
-    server_api::{auth::UserAuthenticationError, object::ObjectClient},
+    server_api::object::ObjectClient,
 };
 
 use crate::ai::mcp::templatable::CloudTemplatableMCPServerModel;
@@ -1677,17 +1677,12 @@ impl SyncQueue {
                 }
             }
 
-            if cause.is::<UserAuthenticationError>() {
-                return true;
-            }
-
             if let Some(err) = cause.downcast_ref::<GraphQLError>() {
                 match err {
                     // This only applies to WarpDev, but if someone's IP address is blocked, there's no
                     // point in continuing to dequeue.
                     GraphQLError::StagingAccessBlocked => return true,
-                    // If the user isn't authorized, stop dequeuing. In general, this should
-                    // manifest as a UserAuthenticationError instead.
+                    // If the user isn't authorized, stop dequeuing.
                     GraphQLError::HttpError {
                         status: StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED,
                         ..

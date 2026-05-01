@@ -7,24 +7,13 @@ use warpui::{Entity, ModelContext, SingletonEntity};
 use super::auth_state::AuthState;
 use super::auth_view_modal::AuthViewVariant;
 use super::AuthStateProvider;
-use crate::server::server_api::auth::UserAuthenticationError;
 use crate::{send_telemetry_from_ctx, TelemetryEvent};
 use user_persistence::PersistedUser;
 
 #[derive(Debug)]
 pub enum AuthManagerEvent {
-    /// Successfully authenticated a user with no errors.
-    #[allow(dead_code)]
-    AuthComplete,
-    /// Failed to authenticate a user, due to a particular `UserAuthenticationError`.
-    #[allow(dead_code)]
-    AuthFailed(UserAuthenticationError),
-    /// The user chose to skip login entirely (no Firebase user created).
-    #[allow(dead_code)]
-    SkippedLogin,
-    /// The user now needs to reauthenticate. If the user needs to reauth, an `AuthFailed`
-    /// event might be triggered instead, but there are some code paths where we don't
-    /// refresh the entire user, only their token, which is when this event might be emitted.
+    /// The user now needs to reauthenticate. Emitted from code paths where we
+    /// don't refresh the entire user, only their token.
     NeedsReauth,
 }
 
@@ -54,16 +43,10 @@ impl AuthManager {
         Self::new(ctx)
     }
 
-    /// Slim fork: there are no Warp credentials to refresh. The CLI
-    /// admin path still calls this on startup; we keep it as a quiet
-    /// no-op so the call site doesn't need to know.
+    /// Slim fork: there are no Warp credentials to refresh. App startup and
+    /// the CLI agent loop still call this; keep it as a quiet no-op so the
+    /// call sites don't need to special-case slim.
     pub fn refresh_user(&self, _ctx: &mut ModelContext<Self>) {}
-
-    /// Slim fork: device auth flow is dead. CLI `warp login` sub-commands
-    /// remain wired so the binary still type-checks, but they never
-    /// produce credentials.
-    #[cfg_attr(target_family = "wasm", allow(dead_code))]
-    pub fn authorize_device(&self, _ctx: &mut ModelContext<Self>) {}
 
     /// Helper function for logging out the user.
     /// NOTE: You probably want to call auth::log_out instead; this only manages the auth state,

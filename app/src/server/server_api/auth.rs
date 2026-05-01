@@ -1,14 +1,10 @@
 use anyhow::{bail, Result};
 use async_trait::async_trait;
-use firebase::FirebaseError;
 use instant::Duration;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
-use thiserror::Error;
-use warp_core::errors::{AnyhowErrorExt, ErrorExt};
 
 use crate::auth::credentials::{AuthToken, Credentials};
-use crate::server::server_api::register_error;
 
 use super::ServerApi;
 
@@ -113,56 +109,4 @@ pub type OAuth2Client = oauth2::basic::BasicClient<
     oauth2::EndpointSet,    // HasTokenUrl
 >;
 
-
-#[derive(Error, Debug)]
-/// Error type when retrieving a user and validating it against Firebase.
-pub enum UserAuthenticationError {
-    /// The user's refresh token is invalid. This could occur if the user authed through
-    /// e.g. Google/GitHub and changed their password.
-    #[error("Firebase returned a token error when fetching an ID token")]
-    DeniedAccessToken(FirebaseError),
-    /// The user's account is invalid. This could occur if the user requested their account
-    /// be deleted per their GDPR/CCPA rights.
-    #[allow(dead_code)]
-    #[error("Firebase returned a user error when fetching an ID token")]
-    UserAccountDisabled(FirebaseError),
-    #[allow(dead_code)]
-    #[error("Invalid state parameter in auth redirect")]
-    InvalidStateParameter,
-    #[allow(dead_code)]
-    #[error("Missing state parameter in auth redirect")]
-    MissingStateParameter,
-    #[error("unexpected error occurred when fetching an ID token: {0:#}")]
-    Unexpected(#[from] anyhow::Error),
-}
-
-impl ErrorExt for UserAuthenticationError {
-    fn is_actionable(&self) -> bool {
-        match self {
-            UserAuthenticationError::DeniedAccessToken(err) => {
-                // If a request to our server failed because the user's refresh token
-                // has expired, they should re-auth, but there's no value in reporting
-                // this back to us.
-                log::info!("ignoring denied access token error: {err:#}");
-                false
-            }
-            UserAuthenticationError::UserAccountDisabled(err) => {
-                // Similarly, if their account is disabled, they can't make requests.
-                log::info!("ignoring user account disabled error: {err:#}");
-                false
-            }
-            UserAuthenticationError::Unexpected(err) => err.is_actionable(),
-            UserAuthenticationError::InvalidStateParameter
-            | UserAuthenticationError::MissingStateParameter => {
-                // For now, we're marking these as actionable, since a surplus of these errors
-                // could mean that something is wrong in our login flow (e.g. we're not properly
-                // passing the `state` variable back to the desktop client).
-                // But in general, someone attempting to trick another into logging into their
-                // account with a spoofed `state` variable is not actionable.
-                true
-            }
-        }
-    }
-}
-register_error!(UserAuthenticationError);
 

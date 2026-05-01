@@ -1318,12 +1318,6 @@ fn launch_command(
             return;
         }
         match event {
-            AuthManagerEvent::AuthComplete => {
-                dispatched = true;
-                if let Err(err) = dispatch_command(ctx, command.clone(), global_options.clone()) {
-                    report_fatal_error(err, ctx);
-                }
-            }
             AuthManagerEvent::NeedsReauth => {
                 dispatched = true;
                 let auth_state = AuthStateProvider::handle(ctx).as_ref(ctx).get();
@@ -1334,11 +1328,6 @@ fn launch_command(
                 };
                 report_fatal_error(anyhow::anyhow!(message), ctx);
             }
-            AuthManagerEvent::AuthFailed(err) => {
-                dispatched = true;
-                report_fatal_error(anyhow::anyhow!("Authentication failed: {err:#}"), ctx);
-            }
-            _ => {}
         }
     });
 
