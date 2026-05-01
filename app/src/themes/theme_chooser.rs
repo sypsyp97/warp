@@ -176,12 +176,6 @@ pub fn init(app: &mut AppContext) {
 fn theme_chooser_items(theme_config: &WarpThemeConfig) -> Vec<ThemeChooserItem> {
     let mut theme_items: Vec<ThemeChooserItem> = theme_config
         .theme_items()
-        .filter(|(key, _)| match key {
-            // Slim fork: referral reward themes are never shown (referrals subsystem removed).
-            ThemeKind::SentReferralReward | ThemeKind::ReceivedReferralReward => false,
-            // All other themes should show up always
-            _ => true,
-        })
         .map(|(key, theme)| ThemeChooserItem::new(key.clone(), theme.clone()))
         .collect();
     theme_items.sort_by(|a, b| a.kind.cmp(&b.kind));
