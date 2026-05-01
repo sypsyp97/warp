@@ -12,7 +12,6 @@ fn ai_subpages_are_identified() {
     assert!(SettingsSection::ThirdPartyCLIAgents.is_ai_subpage());
 
     assert!(!SettingsSection::AI.is_ai_subpage());
-    assert!(!SettingsSection::Account.is_ai_subpage());
     assert!(!SettingsSection::CodeIndexing.is_ai_subpage());
 }
 
@@ -30,7 +29,6 @@ fn cloud_platform_subpages_are_identified() {
     assert!(SettingsSection::CloudEnvironments.is_cloud_platform_subpage());
     assert!(SettingsSection::OzCloudAPIKeys.is_cloud_platform_subpage());
 
-    assert!(!SettingsSection::Account.is_cloud_platform_subpage());
     assert!(!SettingsSection::WarpAgent.is_cloud_platform_subpage());
 }
 
@@ -46,7 +44,6 @@ fn is_subpage_covers_all_umbrella_types() {
     assert!(SettingsSection::OzCloudAPIKeys.is_subpage());
 
     // Top-level pages should not be subpages.
-    assert!(!SettingsSection::Account.is_subpage());
     assert!(!SettingsSection::AI.is_subpage());
     assert!(!SettingsSection::Code.is_subpage());
     assert!(!SettingsSection::Privacy.is_subpage());
@@ -110,10 +107,6 @@ fn cloud_platform_subpages_map_to_their_backing_pages() {
 #[test]
 fn non_subpage_sections_map_to_themselves() {
     assert_eq!(
-        SettingsSection::Account.parent_page_section(),
-        SettingsSection::Account
-    );
-    assert_eq!(
         SettingsSection::AI.parent_page_section(),
         SettingsSection::AI
     );
@@ -139,7 +132,6 @@ fn ai_subpages_list_contains_all_ai_subpage_variants() {
 fn ai_subpages_list_does_not_contain_non_subpages() {
     let subpages = SettingsSection::ai_subpages();
     assert!(!subpages.contains(&SettingsSection::AI));
-    assert!(!subpages.contains(&SettingsSection::Account));
     assert!(!subpages.contains(&SettingsSection::Code));
 }
 
@@ -406,17 +398,17 @@ fn nav_filter_includes_matching_subpage_and_excludes_others() {
 
 #[test]
 fn nav_filter_falls_back_to_pages_filter_for_top_level_pages() {
-    // Top-level pages (Account, Appearance, etc.) have no subpage_filter entry.
+    // Top-level pages (Privacy, Appearance, etc.) have no subpage_filter entry.
     // They fall back to pages_filter using parent_page_section() == themselves.
     let subpage_filter: HashMap<SettingsSection, MatchData> = HashMap::new();
     let pages_filter = vec![
-        (SettingsSection::Account, MatchData::Uncounted(true)),
+        (SettingsSection::Privacy, MatchData::Uncounted(true)),
         (SettingsSection::Appearance, MatchData::Countable(0)),
         (SettingsSection::Features, MatchData::Uncounted(true)),
     ];
 
     assert!(section_passes_nav_filter(
-        SettingsSection::Account,
+        SettingsSection::Privacy,
         &subpage_filter,
         &pages_filter
     ));
@@ -535,7 +527,7 @@ fn auto_select_stays_on_current_when_it_matches() {
 
 #[test]
 fn auto_select_falls_back_to_top_level_page_when_no_subpages_match() {
-    // All AI subpages filtered out, but Account (top-level) is still visible.
+    // All AI subpages filtered out, but Privacy (top-level) is still visible.
     let mut filter = HashMap::new();
     filter.insert(SettingsSection::WarpAgent, MatchData::Countable(0));
     filter.insert(SettingsSection::AgentProfiles, MatchData::Countable(0));
@@ -546,13 +538,13 @@ fn auto_select_falls_back_to_top_level_page_when_no_subpages_match() {
     );
 
     let pages_visible = vec![
-        (SettingsSection::Account, true),
+        (SettingsSection::Privacy, true),
         (SettingsSection::AI, false),
     ];
 
-    // Nav order includes top-level Account before the AI subpages.
+    // Nav order includes top-level Privacy before the AI subpages.
     let nav_order = vec![
-        SettingsSection::Account,
+        SettingsSection::Privacy,
         SettingsSection::WarpAgent,
         SettingsSection::AgentProfiles,
         SettingsSection::Knowledge,
@@ -562,8 +554,8 @@ fn auto_select_falls_back_to_top_level_page_when_no_subpages_match() {
     let first = first_visible_section(&nav_order, &filter, &pages_visible);
     assert_eq!(
         first,
-        Some(SettingsSection::Account),
-        "Should fall back to Account when no subpages match"
+        Some(SettingsSection::Privacy),
+        "Should fall back to Privacy when no subpages match"
     );
 }
 
@@ -592,12 +584,12 @@ fn auto_select_with_no_matches_anywhere() {
     filter.insert(SettingsSection::AgentProfiles, MatchData::Countable(0));
 
     let pages_visible = vec![
-        (SettingsSection::Account, false),
+        (SettingsSection::Privacy, false),
         (SettingsSection::AI, false),
     ];
 
     let nav_order = vec![
-        SettingsSection::Account,
+        SettingsSection::Privacy,
         SettingsSection::WarpAgent,
         SettingsSection::AgentProfiles,
     ];
@@ -635,7 +627,7 @@ use nav::{SettingsNavItem, SettingsUmbrella};
 /// sidebar ordering so tests exercise realistic nav orders.
 fn realistic_nav_items() -> Vec<SettingsNavItem> {
     vec![
-        SettingsNavItem::Page(SettingsSection::Account),
+        SettingsNavItem::Page(SettingsSection::Privacy),
         SettingsNavItem::Umbrella(SettingsUmbrella::new(
             "Agents",
             SettingsSection::ai_subpages().to_vec(),
@@ -668,12 +660,12 @@ fn collapsed_umbrella_is_a_single_nav_stop() {
     // All umbrellas default to collapsed.
     let stops = build_nav_stops(&nav_items, |_| true);
 
-    // Expect: Account, <Agents umbrella>, BillingAndUsage, <Code umbrella>,
+    // Expect: Privacy, <Agents umbrella>, BillingAndUsage, <Code umbrella>,
     // <Cloud platform umbrella>, Teams.
     assert_eq!(stops.len(), 6);
     assert!(matches!(
         stops[0],
-        NavStop::Section(SettingsSection::Account)
+        NavStop::Section(SettingsSection::Privacy)
     ));
     assert!(matches!(
         stops[1],
@@ -714,7 +706,7 @@ fn expanded_umbrella_produces_section_stop_per_subpage() {
 
     let stops = build_nav_stops(&nav_items, |_| true);
 
-    // Expect: Account, WarpAgent, AgentProfiles, AgentMCPServers, Knowledge,
+    // Expect: Privacy, WarpAgent, AgentProfiles, AgentMCPServers, Knowledge,
     // ThirdPartyCLIAgents, BillingAndUsage, <Code umbrella>,
     // <Cloud platform umbrella>, Teams.
     let sections: Vec<_> = stops
@@ -727,7 +719,7 @@ fn expanded_umbrella_produces_section_stop_per_subpage() {
     assert_eq!(
         sections,
         vec![
-            "Account",
+            "Privacy",
             "WarpAgent",
             "AgentProfiles",
             "AgentMCPServers",
@@ -816,7 +808,7 @@ fn filtered_out_top_level_page_is_skipped() {
     // But other pages remain.
     assert!(stops
         .iter()
-        .any(|s| matches!(s, NavStop::Section(SettingsSection::Account))));
+        .any(|s| matches!(s, NavStop::Section(SettingsSection::Privacy))));
 }
 
 // ── current_stop_index ──────────────────────────────────────────────────────
@@ -907,16 +899,16 @@ fn simulate_cycle(
 }
 
 #[test]
-fn arrow_down_from_account_with_collapsed_agents_lands_on_first_subpage() {
+fn arrow_down_from_privacy_with_collapsed_agents_lands_on_first_subpage() {
     let nav_items = realistic_nav_items();
     let stops = build_nav_stops(&nav_items, |_| true);
 
-    // Pressing Down from Account should auto-expand Agents and select WarpAgent,
+    // Pressing Down from Privacy should auto-expand Agents and select WarpAgent,
     // not skip over to BillingAndUsage.
     let next = simulate_cycle(
         &nav_items,
         &stops,
-        SettingsSection::Account,
+        SettingsSection::Privacy,
         CycleDirection::Down,
     );
     assert_eq!(next, SettingsSection::WarpAgent);
@@ -1023,13 +1015,13 @@ fn arrow_down_collapsed_umbrella_respects_search_filter() {
     };
     let stops = build_nav_stops(&nav_items, is_visible);
 
-    // From Account, Down should land on AgentMCPServers (first visible
+    // From Privacy, Down should land on AgentMCPServers (first visible
     // subpage of the still-collapsed Agents umbrella), not on WarpAgent /
     // AgentProfiles.
     let next = simulate_cycle(
         &nav_items,
         &stops,
-        SettingsSection::Account,
+        SettingsSection::Privacy,
         CycleDirection::Down,
     );
     assert_eq!(next, SettingsSection::AgentMCPServers);
