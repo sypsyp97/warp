@@ -1,5 +1,4 @@
 use crate::{
-    changelog_model::ChangelogModel,
     channel::ChannelState,
     features::FeatureFlag,
     resource_center::skip_tips_and_write_to_user_defaults,
@@ -27,8 +26,8 @@ use super::{
         SCROLLBAR_WIDTH, SECTION_SPACING,
     },
     sections::sections,
-    ChangelogSectionView, ContentSectionData, ContentSectionView, FeatureSection,
-    FeatureSectionData, FeatureSectionView, Section, TipsCompleted,
+    ContentSectionData, ContentSectionView, FeatureSection, FeatureSectionData, FeatureSectionView,
+    Section, TipsCompleted,
 };
 
 #[derive(Default)]
@@ -57,15 +56,10 @@ impl ResourceCenterMainView {
     pub fn new(
         ctx: &mut ViewContext<Self>,
         tips_completed: ModelHandle<TipsCompleted>,
-        changelog_model_handle: ModelHandle<ChangelogModel>,
     ) -> Self {
         let action_target = ctx.add_model(|_| ActionTarget::None);
-        let section_views = Self::initialize_section_views(
-            tips_completed.clone(),
-            action_target.clone(),
-            ctx,
-            changelog_model_handle.clone(),
-        );
+        let section_views =
+            Self::initialize_section_views(tips_completed.clone(), action_target.clone(), ctx);
         Self {
             button_mouse_states: Default::default(),
             clipped_scroll_state: Default::default(),
@@ -78,7 +72,6 @@ impl ResourceCenterMainView {
         tips_completed: ModelHandle<TipsCompleted>,
         action_target: ModelHandle<ActionTarget>,
         ctx: &mut ViewContext<Self>,
-        changelog_model_handle: ModelHandle<ChangelogModel>,
     ) -> Vec<SectionViewHandle> {
         let sections = sections(ctx);
 
@@ -139,7 +132,6 @@ impl ResourceCenterMainView {
                         _ => false,
                     };
 
-                    // Show tips progress for every section except changelog
                     let show_tips_progress = !matches!(data.section_name, FeatureSection::WhatsNew);
 
                     SectionViewHandle::Feature(Self::build_feature_section_view(
@@ -154,9 +146,6 @@ impl ResourceCenterMainView {
                 Section::Content(data) => {
                     SectionViewHandle::Content(Self::build_content_section_view(data, ctx))
                 }
-                Section::Changelog() => SectionViewHandle::Changelog(
-                    Self::build_changelog_section_view(changelog_model_handle.clone(), ctx),
-                ),
             })
             .collect()
     }
@@ -213,7 +202,6 @@ impl ResourceCenterMainView {
                             }
                         }
                         SectionViewHandle::Content(_) => {}
-                        SectionViewHandle::Changelog(_) => {}
                     }
                 }
                 ctx.notify();
@@ -226,20 +214,6 @@ impl ResourceCenterMainView {
         ctx: &mut ViewContext<ResourceCenterMainView>,
     ) -> ViewHandle<ContentSectionView> {
         ctx.add_typed_action_view(|ctx| ContentSectionView::new(section_data.clone(), false, ctx))
-    }
-
-    fn build_changelog_section_view(
-        changelog_model_handle: ModelHandle<ChangelogModel>,
-        ctx: &mut ViewContext<ResourceCenterMainView>,
-    ) -> ViewHandle<ChangelogSectionView> {
-        let showing_new_changelog = match ChannelState::app_version() {
-            Some(version) => !Settings::has_changelog_been_shown(version, ctx),
-            None => false,
-        };
-
-        ctx.add_typed_action_view(|ctx: &mut ViewContext<_>| {
-            ChangelogSectionView::new(changelog_model_handle, showing_new_changelog, ctx)
-        })
     }
 
     pub fn set_action_target(
@@ -256,7 +230,6 @@ impl ResourceCenterMainView {
                     });
                 }
                 SectionViewHandle::Content(_) => {}
-                SectionViewHandle::Changelog(_) => {}
             }
         }
     }
@@ -270,9 +243,6 @@ impl ResourceCenterMainView {
                     body.add_child(ChildView::new(feature_view_handle).finish());
                 }
                 SectionViewHandle::Content(section_view_handle) => {
-                    body.add_child(ChildView::new(section_view_handle).finish());
-                }
-                SectionViewHandle::Changelog(section_view_handle) => {
                     body.add_child(ChildView::new(section_view_handle).finish());
                 }
             }

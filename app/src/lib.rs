@@ -12,7 +12,6 @@ mod auth;
 mod autoupdate;
 mod banner;
 mod billing;
-mod changelog_model;
 mod chip_configurator;
 mod cloud_object;
 mod code;
@@ -197,7 +196,6 @@ use crate::ai::restored_conversations::RestoredAgentConversations;
 use crate::ai::skills::SkillManager;
 use crate::ai::AIRequestUsageModel;
 use crate::autoupdate::{AutoupdateState, RelaunchModel};
-use crate::changelog_model::ChangelogModel;
 use crate::cloud_object::model::actions::ObjectActions;
 use crate::cloud_object::model::view::CloudViewModel;
 use crate::code::global_buffer_model::GlobalBufferModel;
@@ -1395,7 +1393,6 @@ fn initialize_app(
     ctx.add_singleton_model(|_| DisplayCount(display_count));
 
     ctx.add_singleton_model(|_| RelaunchModel::new());
-    ctx.add_singleton_model(|_| ChangelogModel::new(server_api.clone()));
     ctx.add_singleton_model(|_| GitHubAuthNotifier::new());
     ctx.add_singleton_model(|_| NetworkStatus::new());
     ctx.add_singleton_model(|_| SystemStats::new());
@@ -2196,8 +2193,6 @@ pub fn enabled_features() -> HashSet<FeatureFlag> {
     }
 
     flags.extend([
-        #[cfg(feature = "changelog")]
-        FeatureFlag::Changelog,
         #[cfg(feature = "record_app_active_events")]
         FeatureFlag::RecordAppActiveEvents,
         #[cfg(feature = "runtime_feature_flags")]
@@ -2564,8 +2559,6 @@ pub fn enabled_features() -> HashSet<FeatureFlag> {
         FeatureFlag::OzPlatformSkills,
         #[cfg(feature = "oz_identity_federation")]
         FeatureFlag::OzIdentityFederation,
-        #[cfg(feature = "oz_changelog_updates")]
-        FeatureFlag::OzChangelogUpdates,
         #[cfg(feature = "bundled_skills")]
         FeatureFlag::BundledSkills,
         #[cfg(feature = "oz_launch_modal")]

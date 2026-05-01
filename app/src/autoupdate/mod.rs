@@ -25,7 +25,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use channel_versions::{Changelog, VersionInfo};
+use channel_versions::VersionInfo;
 use warpui::{AppContext, Entity, SingletonEntity};
 
 use crate::server::server_api::ServerApi;
@@ -151,9 +151,4 @@ impl SingletonEntity for RelaunchModel {}
 
 pub fn is_incoming_version_past_current(_version: Option<&str>) -> bool {
     false
-}
-
-/// Stub: the slim fork does not fetch changelogs from Warp's servers.
-pub async fn get_current_changelog(_server_api: Arc<ServerApi>) -> Result<Option<Changelog>> {
-    Ok(None)
 }
