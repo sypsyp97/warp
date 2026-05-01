@@ -2,7 +2,6 @@ use super::super::soft_wrap::{
     ClampDirection, DisplayPointAndClampDirection, FrameLayouts, SoftWrapPoint, SoftWrapState,
 };
 use super::model::MarkedTextState;
-use super::snapshot::VOICE_INPUT_ICON_CURSOR_GAP;
 use super::{
     position_id_for_cached_point, snapshot::ViewSnapshot, CursorColors, DisplayPoint,
     DrawableSelection, EditorAction, ScrollState, SelectAction,
@@ -216,13 +215,6 @@ pub struct EditorElement {
     editor_decorator_elements: EditorDecoratorElements,
     local_selection_data: LocalDrawableSelectionData,
     remote_selections_data: HashMap<ReplicaId, RemoteDrawableSelectionData>,
-
-    // Slim fork: voice input is gone but the field is preserved so that
-    // every constructor call site keeps compiling without surgery.
-    #[allow(dead_code)]
-    voice_input_cursor_icon: Option<Box<dyn Element>>,
-    #[allow(dead_code)]
-    voice_input_toggle_key_code: Option<KeyCode>,
 }
 
 impl EditorElement {
@@ -241,7 +233,6 @@ impl EditorElement {
         local_selection_data: LocalDrawableSelectionData,
         remote_selections_data: HashMap<ReplicaId, super::RemoteDrawableSelectionData>,
         cursor_display_type: Option<CursorDisplayType>,
-        voice_input_toggle_key_code: Option<KeyCode>,
     ) -> Self {
         let remote_selections_data = HashMap::from_iter(remote_selections_data.into_iter().map(
             |(replica_id, drawable_selections_data)| {
@@ -270,8 +261,6 @@ impl EditorElement {
             remote_selections_data,
             preferred_cursor_type: cursor_display_type.unwrap_or_default(),
             cycle_next_command_hint: None,
-            voice_input_cursor_icon: None,
-            voice_input_toggle_key_code,
         }
     }
 
@@ -815,7 +804,6 @@ impl EditorElement {
         cursors: SmallVec<[CursorData; 32]>,
         view_snapshot: &ViewSnapshot,
         remote_selections_data: &mut HashMap<ReplicaId, RemoteDrawableSelectionData>,
-        voice_input_icon: &mut Option<Box<dyn Element>>,
         ctx: &mut PaintContext,
         app: &AppContext,
     ) {
@@ -867,19 +855,6 @@ impl EditorElement {
                         .paint(avatar_origin, ctx, app);
                     ctx.scene.stop_layer();
                 }
-            }
-
-            if let Some(element) = voice_input_icon {
-                let icon_size = view_snapshot.voice_input_icon_size();
-                let icon_x_offset = icon_size.x() / 2. - cursor_width / 2.;
-                let icon_origin = vec2f(
-                    cursor.origin.x() - icon_x_offset,
-                    cursor.origin.y() - icon_size.y() - VOICE_INPUT_ICON_CURSOR_GAP,
-                );
-                // New layer is started so voice icon is rendered over text and prompt
-                ctx.scene.start_layer(warpui::ClipBounds::None);
-                element.paint(icon_origin, ctx, app);
-                ctx.scene.stop_layer();
             }
         }
     }
@@ -1733,15 +1708,6 @@ impl Element for EditorElement {
             );
         }
 
-        if let Some(element) = self.voice_input_cursor_icon.as_mut() {
-            let voice_input_icon_size = view_snapshot.voice_input_icon_size();
-            element.layout(
-                SizeConstraint::new(voice_input_icon_size, voice_input_icon_size),
-                ctx,
-                app,
-            );
-        }
-
         self.soft_wrap_state.update(frame_layouts.clone());
 
         self.layout = Some(LayoutState {
@@ -1866,7 +1832,6 @@ impl Element for EditorElement {
                 cursors,
                 view_snapshot,
                 &mut self.remote_selections_data,
-                &mut self.voice_input_cursor_icon,
                 ctx,
                 app,
             );

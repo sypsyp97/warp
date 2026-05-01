@@ -1,7 +1,6 @@
 use crate::ai::persisted_workspace::PersistedWorkspace;
 use crate::palette::PaletteMode;
 use crate::server::telemetry::PaletteSource;
-use crate::settings::AISettings;
 use crate::terminal::input::SET_INPUT_MODE_AGENT_ACTION_NAME;
 use crate::terminal::view::init::{
     CANCEL_COMMAND_KEYBINDING, SELECT_PREVIOUS_BLOCK_ACTION_NAME,
@@ -350,11 +349,6 @@ pub struct AgentTip {
 impl AITip for AgentTip {
     fn keystroke(&self, app: &AppContext) -> Option<Keystroke> {
         let binding_name = self.binding_name?;
-
-        // Special case: voice input uses settings, not editable bindings
-        if binding_name == "FN" {
-            return AISettings::as_ref(app).voice_input_toggle_key.keystroke();
-        }
 
         if let Some(binding) = app.editable_bindings().find(|b| b.name == binding_name) {
             return trigger_to_keystroke(binding.trigger);

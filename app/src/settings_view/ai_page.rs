@@ -123,7 +123,7 @@ use crate::{
     appearance::Appearance,
     editor::Event as EditorEvent,
     editor::{EditorView, TextOptions},
-    settings::{AISettings, VoiceInputToggleKey},
+    settings::AISettings,
     ui_components::blended_colors,
     util::bindings,
     view_components::{Dropdown, DropdownItem},
@@ -341,17 +341,6 @@ pub fn init_actions_from_parent_view<T: Action + Clone>(
         app,
     );
     ToggleSettingActionPair::add_toggle_setting_action_pairs_as_bindings(
-        vec![ToggleSettingActionPair::new(
-            "voice input",
-            builder(SettingsAction::AI(AISettingsPageAction::ToggleVoiceInput)),
-            &(context.clone() & id!(flags::IS_ANY_AI_ENABLED)),
-            flags::IS_VOICE_INPUT_ENABLED,
-        )
-        .with_group(bindings::BindingGroup::WarpAi)
-        .with_enabled(|| false)],
-        app,
-    );
-    ToggleSettingActionPair::add_toggle_setting_action_pairs_as_bindings(
         vec![ToggleSettingActionPair::custom(
             SettingActionPairDescriptions::new(
                 "Show \"Use Agent\" footer",
@@ -389,7 +378,6 @@ pub fn init_actions_from_parent_view<T: Action + Clone>(
 pub struct AISettingsPageView {
     page: PageType<Self>,
     active_subpage: Option<AISubpage>,
-    voice_input_toggle_key_dropdown: ViewHandle<Dropdown<AISettingsPageAction>>,
     local_only_icon_tooltip_states: RefCell<HashMap<String, MouseStateHandle>>,
     autodetection_denylist_editor: ViewHandle<EditorView>,
     autonomy_dropdown_menu: ViewHandle<Dropdown<AISettingsPageAction>>,
@@ -482,42 +470,6 @@ impl AISettingsPageView {
 
                 ctx.notify();
             }
-        });
-
-        let voice_input_toggle_key_dropdown = ctx.add_typed_action_view(|ctx| {
-            let mut dropdown = Dropdown::new(ctx);
-            dropdown.set_top_bar_max_width(AI_SETTINGS_DROPDOWN_WIDTH);
-            if !AISettings::as_ref(ctx).is_voice_input_enabled(ctx) {
-                dropdown.set_disabled(ctx);
-            }
-
-            let values = VoiceInputToggleKey::all_possible_values();
-            let current_value = AISettings::as_ref(ctx).voice_input_toggle_key.value();
-            let selected_index = values
-                .iter()
-                .position(|val| val == current_value)
-                .unwrap_or_else(|| {
-                    log::warn!(
-                        "Could not find current VoiceInputToggleKey value in dropdown option list"
-                    );
-                    0
-                });
-
-            dropdown.add_items(
-                values
-                    .into_iter()
-                    .map(|val| {
-                        DropdownItem::new(
-                            val.display_name(),
-                            AISettingsPageAction::SetVoiceInputToggleKey(val),
-                        )
-                    })
-                    .collect(),
-                ctx,
-            );
-            dropdown.set_selected_by_index(selected_index, ctx);
-
-            dropdown
         });
 
         let coding_model_dropdown = ctx.add_typed_action_view(|ctx| {
@@ -864,7 +816,6 @@ impl AISettingsPageView {
                         ctx,
                     );
 
-                    me.update_voice_input_dropdown_enablement(ctx);
                     Self::refresh_autonomy_dropdown_menu(&me.autonomy_dropdown_menu, ctx);
 
                     me.refresh_all_execution_profile_ui(ctx);
@@ -878,9 +829,6 @@ impl AISettingsPageView {
                     Self::refresh_mcp_allowlist_dropdown(&me.mcp_allowlist_dropdown, ctx);
                     Self::refresh_mcp_denylist_dropdown(&me.mcp_denylist_dropdown, ctx);
                 }
-                AISettingsChangedEvent::VoiceInputEnabled { .. } => {
-                    me.update_voice_input_dropdown_enablement(ctx);
-                }
                 AISettingsChangedEvent::AgentModeExecuteReadonlyCommands { .. } => {
                     Self::refresh_autonomy_dropdown_menu(&me.autonomy_dropdown_menu, ctx);
                     Self::refresh_code_read_autonomy_dropdown_menu(
@@ -893,16 +841,6 @@ impl AISettingsPageView {
                         &me.code_read_autonomy_dropdown_menu,
                         ctx,
                     );
-                }
-                AISettingsChangedEvent::VoiceInputToggleKey { .. } => {
-                    let current_value = AISettings::as_ref(ctx)
-                        .voice_input_toggle_key
-                        .value()
-                        .display_name();
-                    me.voice_input_toggle_key_dropdown
-                        .update(ctx, |dropdown, ctx| {
-                            dropdown.set_selected_by_name(current_value, ctx)
-                        });
                 }
                 AISettingsChangedEvent::AgentModeCommandExecutionAllowlist { .. } => {
                     me.command_execution_allowlist_mouse_state_handles = AISettings::as_ref(ctx)
@@ -1350,7 +1288,6 @@ impl AISettingsPageView {
         Self {
             page: Self::build_page(None, ctx),
             active_subpage: None,
-            voice_input_toggle_key_dropdown,
             autodetection_denylist_editor,
             local_only_icon_tooltip_states: Default::default(),
             command_execution_allowlist_editor,
@@ -1389,19 +1326,6 @@ impl AISettingsPageView {
             profile_views,
             add_profile_button,
         }
-    }
-
-    fn update_voice_input_dropdown_enablement(&mut self, ctx: &mut ViewContext<Self>) {
-        let is_voice_enabled = AISettings::as_ref(ctx).is_voice_input_enabled(ctx);
-        self.voice_input_toggle_key_dropdown
-            .update(ctx, |dropdown, ctx| {
-                if is_voice_enabled {
-                    dropdown.set_enabled(ctx);
-                } else {
-                    dropdown.set_disabled(ctx);
-                }
-            });
-        ctx.notify();
     }
 
     /// Set the active subpage and rebuild the widget list to show only relevant widgets.
@@ -2038,7 +1962,6 @@ impl Entity for AISettingsPageView {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AISettingsPageAction {
     OpenUrl(String),
-    SetVoiceInputToggleKey(VoiceInputToggleKey),
     ToggleGlobalAI,
     ToggleActiveAI,
     ToggleIntelligentAutosuggestions,
@@ -2051,7 +1974,6 @@ pub enum AISettingsPageAction {
     ToggleNLDInTerminal,
     ToggleCLIAgentToolbar,
     ToggleUseAgentToolbar,
-    ToggleVoiceInput,
     ToggleCanUseWarpCreditsWithByok,
     HyperlinkClick(HyperlinkUrl),
     ToggleCodebaseContext,
@@ -2116,15 +2038,6 @@ impl TypedActionView for AISettingsPageView {
         match action {
             AISettingsPageAction::OpenUrl(url) => {
                 ctx.open_url(url.as_str());
-            }
-            AISettingsPageAction::SetVoiceInputToggleKey(key) => {
-                AISettings::handle(ctx).update(ctx, |settings, ctx| {
-                    report_if_error!(settings.voice_input_toggle_key.set_value(*key, ctx));
-                    report_if_error!(settings
-                        .explicitly_interacted_with_voice
-                        .set_value(true, ctx));
-                });
-                ctx.notify();
             }
             AISettingsPageAction::ToggleGlobalAI => {
                 match AISettings::handle(ctx).update(ctx, |settings, ctx| {
@@ -2400,26 +2313,6 @@ impl TypedActionView for AISettingsPageView {
                     }
                     Err(e) => {
                         log::warn!("Failed to set value for Codebase Context: {e:?}");
-                    }
-                }
-                ctx.notify();
-            }
-            AISettingsPageAction::ToggleVoiceInput => {
-                match AISettings::handle(ctx).update(ctx, |settings, ctx| {
-                    settings
-                        .voice_input_enabled_internal
-                        .toggle_and_save_value(ctx)
-                }) {
-                    Ok(new_value) => {
-                        send_telemetry_from_ctx!(
-                            TelemetryEvent::ToggleVoiceInputSetting {
-                                is_voice_input_enabled: new_value,
-                            },
-                            ctx
-                        );
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to set value for Voice Input: {e:?}");
                     }
                 }
                 ctx.notify();

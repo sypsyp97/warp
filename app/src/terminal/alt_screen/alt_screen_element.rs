@@ -86,11 +86,6 @@ pub struct AltScreenElement {
     cursor_hint_text: Option<Box<dyn Element>>,
 
     cli_subagent_view: Option<Box<dyn Element>>,
-
-    /// Voice input toggle key code for CLI agent footer integration.
-    /// Slim fork: voice is gone; keep the field so constructors compile.
-    #[allow(dead_code)]
-    voice_input_toggle_key_code: Option<KeyCode>,
 }
 
 impl AltScreenElement {
@@ -159,7 +154,6 @@ impl AltScreenElement {
             max_scroll_top: None,
             cursor_hint_text,
             cli_subagent_view,
-            voice_input_toggle_key_code: None,
         }
     }
 

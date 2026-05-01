@@ -2156,9 +2156,7 @@ pub enum TelemetryEvent {
     },
 
     /// Emitted when the user toggles the "Voice Input" setting in the AI settings page.
-    ToggleVoiceInputSetting {
-        is_voice_input_enabled: bool,
-    },
+    ToggleVoiceInputSetting,
 
     /// Emitted when the user toggles the "Show Agent Tips" setting in the AI settings page.
     ToggleShowAgentTips {
@@ -3486,9 +3484,7 @@ impl TelemetryEvent {
             } => Some(
                 json!({"is_git_operations_autogen_enabled": is_git_operations_autogen_enabled}),
             ),
-            TelemetryEvent::ToggleVoiceInputSetting {
-                is_voice_input_enabled,
-            } => Some(json!({"is_voice_input_enabled": is_voice_input_enabled})),
+            TelemetryEvent::ToggleVoiceInputSetting => Some(json!({})),
             TelemetryEvent::AgentModePotentialAutoDetectionFalsePositive(
                 AgentModeAutoDetectionFalsePositivePayload::InternalDogfoodUsers { input_text },
             ) => Some(json!({"input_text": input_text})),
@@ -4827,7 +4823,7 @@ impl TelemetryEvent {
             | TelemetryEvent::ToggleActiveAI { .. }
             | TelemetryEvent::TogglePromptSuggestionsSetting { .. }
             | TelemetryEvent::ToggleCodeSuggestionsSetting { .. }
-            | TelemetryEvent::ToggleVoiceInputSetting { .. }
+            | TelemetryEvent::ToggleVoiceInputSetting
             | TelemetryEvent::TierLimitHit(_)
             | TelemetryEvent::SharedObjectLimitHitBannerViewPlansButtonClicked
             | TelemetryEvent::ResourceUsageStats { .. }
