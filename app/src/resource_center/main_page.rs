@@ -42,7 +42,6 @@ const SEND_SVG_PATH: &str = "bundled/svg/send.svg";
 
 #[derive(Default)]
 struct MouseStateHandles {
-    copy_version: MouseStateHandle,
     invite_people: MouseStateHandle,
     skip_tips: MouseStateHandle,
 }
@@ -302,47 +301,6 @@ impl ResourceCenterMainView {
         .finish()
     }
 
-    fn render_current_version(&self, appearance: &Appearance) -> Box<dyn Element> {
-        // Use a dummy string for git release tag which is not available on local env
-        let version = ChannelState::app_version().unwrap_or("v0.local.testing.string_00");
-
-        let style = UiComponentStyles {
-            font_color: Some(appearance.theme().nonactive_ui_text_color().into()),
-            ..Default::default()
-        };
-
-        let text = appearance
-            .ui_builder()
-            .wrappable_text(version, true)
-            .with_style(style)
-            .build()
-            .finish();
-
-        let copy_icon = appearance
-            .ui_builder()
-            .copy_button(
-                FOOTER_ICON_SIZE,
-                self.button_mouse_states.copy_version.clone(),
-            )
-            .build()
-            .on_click(move |ctx, _, _| {
-                ctx.dispatch_typed_action(WorkspaceAction::CopyVersion(version))
-            })
-            .finish();
-
-        Container::new(
-            Flex::row()
-                .with_child(Shrinkable::new(1., Align::new(text).left().finish()).finish())
-                .with_child(Shrinkable::new(0.2, Align::new(copy_icon).finish()).finish())
-                .with_main_axis_size(MainAxisSize::Max)
-                .finish(),
-        )
-        .with_margin_left(SECTION_SPACING)
-        .with_margin_bottom(BUTTON_PADDING)
-        .with_uniform_padding(BUTTON_PADDING)
-        .finish()
-    }
-
     fn render_invite_button(&self, appearance: &Appearance) -> Box<dyn Element> {
         let default_styles = UiComponentStyles {
             font_size: Some(DETAIL_FONT_SIZE),
@@ -524,11 +482,6 @@ impl View for ResourceCenterMainView {
         main_page = main_page
             .with_child(Shrinkable::new(20., body).finish())
             .with_child(Shrinkable::new(0.1, Empty::new().finish()).finish()); // placeholder to ensure pane extends to bottom of the window
-
-        if FeatureFlag::Autoupdate.is_enabled() && ChannelState::show_autoupdate_menu_items() {
-            let current_version = self.render_current_version(appearance);
-            main_page.add_child(current_version);
-        }
 
         main_page.finish()
     }
