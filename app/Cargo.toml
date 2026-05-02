@@ -522,7 +522,6 @@ default = [
     "mcp_grouped_server_context",
     "fork_from_command",
     "context_window_usage_v2",
-    "warp_managed_secrets",
     "v4a_file_diffs",
     "classic_completions",
     "force_classic_completions",
