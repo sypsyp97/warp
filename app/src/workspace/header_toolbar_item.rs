@@ -64,10 +64,7 @@ impl HeaderToolbarItemKind {
                     && *TabSettings::as_ref(app).use_vertical_tabs
             }
             Self::ToolsPanel => true,
-            Self::AgentManagement => {
-                AISettings::as_ref(app).is_any_ai_enabled(app)
-                    && FeatureFlag::AgentManagementView.is_enabled()
-            }
+            Self::AgentManagement => false,
             Self::CodeReview => cfg!(feature = "local_fs"),
             Self::NotificationsMailbox => false,
         }

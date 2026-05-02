@@ -29,7 +29,6 @@ use crate::ai::agent_conversations_model::ConversationOrTask;
 use crate::ai::agent_management::notifications::toast_stack::AgentNotificationToastStack;
 use crate::ai::agent_management::notifications::view::NotificationMailboxView;
 use crate::ai::agent_management::notifications::NotificationFilter;
-use crate::ai::agent_management::telemetry::AgentManagementTelemetryEvent;
 use crate::ai::agent_management::view::{AgentManagementView, AgentManagementViewEvent};
 use crate::ai::agent_management::AgentManagementEvent;
 use crate::ai::ambient_agents::telemetry::{CloudAgentTelemetryEvent, CloudModeEntryPoint};
@@ -4579,11 +4578,6 @@ impl Workspace {
                 self.close_palette(false, None, ctx);
             }
 
-            // If the agent management view is open, we want to close it when we activate a new tab.
-            if FeatureFlag::AgentManagementView.is_enabled() {
-                self.set_is_agent_management_view_open(false, ctx);
-            }
-
             self.set_active_tab_index(index, ctx);
             self.focus_active_tab(ctx);
             self.update_window_title(ctx);
@@ -4720,12 +4714,6 @@ impl Workspace {
         // Focusing on the clicked tab
         if index >= self.tab_count() {
             return;
-        }
-
-        // If the agent management view is open, we want to close it when we change focus to rename a tab.
-        // This function doesn't call `activate_tab_internal`, which is why we need the extra check here.
-        if FeatureFlag::AgentManagementView.is_enabled() {
-            self.set_is_agent_management_view_open(false, ctx);
         }
 
         self.set_active_tab_index(index, ctx);
@@ -16135,13 +16123,7 @@ impl Workspace {
             .finish();
         } else {
             // Copy from our saved tab_bar_state to ensure all tabs get rendered with the same state
-            let active_tab_index = if FeatureFlag::AgentManagementView.is_enabled()
-                && self.current_workspace_state.is_agent_management_view_open
-            {
-                None
-            } else {
-                Some(self.active_tab_index)
-            };
+            let active_tab_index = Some(self.active_tab_index);
 
             let tab_bar_state = TabBarState {
                 tab_count: self.tabs.len(),
@@ -17032,13 +17014,7 @@ impl Workspace {
     ) -> Box<dyn Element> {
         let active_tab_data = &self.tabs[self.active_tab_index];
 
-        let active_content = if FeatureFlag::AgentManagementView.is_enabled()
-            && self.current_workspace_state.is_agent_management_view_open
-        {
-            ChildView::new(&self.agent_management_view).finish()
-        } else {
-            ChildView::new(&active_tab_data.pane_group).finish()
-        };
+        let active_content = ChildView::new(&active_tab_data.pane_group).finish();
 
         let terminal_content = match self.maybe_render_workspace_banner(app, appearance) {
             Some(banner_element) => Flex::column()
@@ -19115,42 +19091,8 @@ impl TypedActionView for Workspace {
                 );
                 ctx.notify();
             }
-            ToggleAgentManagementView => {
-                if AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
-                    && FeatureFlag::AgentManagementView.is_enabled()
-                {
-                    let is_open = !self.current_workspace_state.is_agent_management_view_open;
-                    self.set_is_agent_management_view_open(is_open, ctx);
-
-                    send_telemetry_from_ctx!(
-                        AgentManagementTelemetryEvent::ViewToggled { is_open },
-                        ctx
-                    );
-
-                    if is_open {
-                        ctx.focus(&self.agent_management_view);
-                    } else {
-                        self.focus_active_tab(ctx);
-                    }
-
-                    ctx.notify();
-                }
-            }
-            ViewAgentRunsForEnvironment { environment_id } => {
-                if AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
-                    && FeatureFlag::AgentManagementView.is_enabled()
-                {
-                    self.set_is_agent_management_view_open(true, ctx);
-                    ctx.focus(&self.agent_management_view);
-
-                    let environment_id = environment_id.clone();
-                    self.agent_management_view.update(ctx, |view, ctx| {
-                        view.apply_environment_filter_from_link(environment_id, ctx);
-                    });
-
-                    ctx.notify();
-                }
-            }
+            ToggleAgentManagementView => {}
+            ViewAgentRunsForEnvironment { environment_id: _ } => {}
             ClosePanel => {
                 if self.left_panel_view.is_self_or_child_focused(ctx) {
                     self.close_left_panel(ctx);

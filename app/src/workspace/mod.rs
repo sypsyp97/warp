@@ -1246,7 +1246,7 @@ pub fn init(app: &mut AppContext) {
         "Toggle the agent management view",
         WorkspaceAction::ToggleAgentManagementView,
     )
-    .with_enabled(|| FeatureFlag::AgentManagementView.is_enabled())
+    .with_enabled(|| false)
     .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
     .with_mac_key_binding("cmd-shift-M")
     .with_linux_or_windows_key_binding("ctrl-shift-M")
