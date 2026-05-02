@@ -1222,6 +1222,45 @@ define_settings_group!(AISettings, settings: [
         toml_path: "byo.system_prompt",
         description: "Optional system prompt for the BYO LLM provider.",
     }
+
+    // OAuth refresh token from the Sign-in-with-ChatGPT flow. Used
+    // alongside the access token (stored in `byo_api_key` when provider
+    // kind is "chatgpt") to silently refresh on 401s.
+    byo_chatgpt_refresh_token: ByoChatgptRefreshToken {
+        type: String,
+        default: String::new(),
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Never,
+        private: true,
+        toml_path: "byo.chatgpt.refresh_token",
+        description: "Refresh token for ChatGPT-subscription OAuth (managed via Settings → AI → Sign in with ChatGPT).",
+    }
+
+    // ChatGPT OAuth id_token (carries the chatgpt_account_id claim).
+    // Currently unused for plain chat but kept around so a future tool
+    // path can attach it without forcing the user to re-authenticate.
+    byo_chatgpt_id_token: ByoChatgptIdToken {
+        type: String,
+        default: String::new(),
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Never,
+        private: true,
+        toml_path: "byo.chatgpt.id_token",
+        description: "Identity token from the ChatGPT-subscription OAuth flow.",
+    }
+
+    // Unix-epoch seconds at which the stored ChatGPT access token
+    // (in `byo_api_key`) stops being valid. 0 = unknown — treat as
+    // expired and refresh on first 401.
+    byo_chatgpt_token_expires_at: ByoChatgptTokenExpiresAt {
+        type: u64,
+        default: 0u64,
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Never,
+        private: true,
+        toml_path: "byo.chatgpt.token_expires_at",
+        description: "Expiry timestamp for the ChatGPT OAuth access token.",
+    }
 ]);
 
 impl AISettings {
@@ -1257,6 +1296,55 @@ impl AISettings {
                 Self::push_byo_snapshot(ctx);
             },
         );
+
+        // When `byo_adapter` silently refreshes a ChatGPT OAuth access
+        // token mid-session, drain the resulting `CodexTokens` updates
+        // here and write them back to AISettings so they survive a
+        // restart.
+        #[cfg(not(target_family = "wasm"))]
+        Self::install_chatgpt_persist_loop(app);
+    }
+
+    /// Wire the ChatGPT-OAuth token persistence channel: byo_adapter
+    /// pushes refreshed token pairs onto an mpsc channel; we listen on
+    /// a background tokio task and round-trip each one back through the
+    /// model spawner so the new tokens land in AISettings.
+    #[cfg(not(target_family = "wasm"))]
+    fn install_chatgpt_persist_loop(app: &mut AppContext) {
+        use crate::ai::codex_auth::CodexTokens;
+
+        let (tx, rx) = async_channel::unbounded::<CodexTokens>();
+        crate::server::byo_adapter::install_chatgpt_persist_sink(tx);
+
+        let spawner = app.update_model(&Self::handle(app), |_me, ctx| ctx.spawner());
+
+        tokio::spawn(async move {
+            while let Ok(tokens) = rx.recv().await {
+                let result = spawner
+                    .spawn(move |settings: &mut Self, ctx| {
+                        let _ = settings
+                            .byo_api_key
+                            .set_value(tokens.access_token.clone(), ctx);
+                        if let Some(rt) = tokens.refresh_token.as_ref() {
+                            let _ = settings
+                                .byo_chatgpt_refresh_token
+                                .set_value(rt.clone(), ctx);
+                        }
+                        if let Some(idt) = tokens.id_token.as_ref() {
+                            let _ = settings
+                                .byo_chatgpt_id_token
+                                .set_value(idt.clone(), ctx);
+                        }
+                        let _ = settings
+                            .byo_chatgpt_token_expires_at
+                            .set_value(tokens.expires_at, ctx);
+                    })
+                    .await;
+                if let Err(e) = result {
+                    log::warn!("Could not persist refreshed ChatGPT tokens: {e:?}");
+                }
+            }
+        });
     }
 
     /// Copy the current BYO fields into the global snapshot consumed
@@ -1270,6 +1358,8 @@ impl AISettings {
             model: me.byo_model.value().clone(),
             base_url: me.byo_base_url.value().clone(),
             system_prompt: me.byo_system_prompt.value().clone(),
+            chatgpt_refresh_token: me.byo_chatgpt_refresh_token.value().clone(),
+            chatgpt_token_expires_at: *me.byo_chatgpt_token_expires_at.value(),
         });
     }
 

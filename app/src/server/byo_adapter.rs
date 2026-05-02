@@ -56,9 +56,26 @@ pub struct ByoSnapshot {
     pub model: String,
     pub base_url: String,
     pub system_prompt: String,
+    /// Refresh token for the ChatGPT-subscription OAuth flow, used to
+    /// silently mint a new access token when the stored one expires.
+    /// Empty when the user authenticates via API key (Anthropic /
+    /// OpenAI) instead of OAuth.
+    pub chatgpt_refresh_token: String,
+    /// Unix-epoch seconds at which the access token in `api_key` stops
+    /// being valid. 0 = unknown lifetime.
+    pub chatgpt_token_expires_at: u64,
 }
 
 static BYO_SNAPSHOT: Lazy<RwLock<ByoSnapshot>> = Lazy::new(|| RwLock::new(ByoSnapshot::default()));
+
+/// Sink for refreshed ChatGPT OAuth tokens. Set by the settings layer
+/// once on startup; `byo_adapter` posts here whenever it has to refresh
+/// the access token mid-flight, so the new pair is persisted back to
+/// `AISettings` (and survives a restart).
+#[cfg(not(target_family = "wasm"))]
+static CHATGPT_PERSIST_TX: once_cell::sync::OnceCell<
+    async_channel::Sender<crate::ai::codex_auth::CodexTokens>,
+> = once_cell::sync::OnceCell::new();
 
 /// Update the live BYO config snapshot.  Called from the AISettings
 /// registration / change-event subscriber on the GPUI thread.
@@ -68,6 +85,15 @@ pub fn set_byo_snapshot(snapshot: ByoSnapshot) {
 
 fn current_byo_snapshot() -> ByoSnapshot {
     BYO_SNAPSHOT.read().clone()
+}
+
+/// Install the persistence sink for refreshed ChatGPT OAuth tokens.
+/// Wired up once during AISettings init.
+#[cfg(not(target_family = "wasm"))]
+pub fn install_chatgpt_persist_sink(
+    tx: async_channel::Sender<crate::ai::codex_auth::CodexTokens>,
+) {
+    let _ = CHATGPT_PERSIST_TX.set(tx);
 }
 
 /// Drive a single BYO-provider chat round and yield faked
@@ -86,9 +112,75 @@ pub async fn run_byo_chat(
         Err(msg) => return Ok(error_stream(missing_config_finished(msg))),
     };
 
+    // For the ChatGPT subscription backend the "API key" is an OAuth
+    // access token that expires on a ~1h cycle. Refresh proactively
+    // before kicking off the request so the user doesn't hit a 401
+    // mid-stream.
+    let config = match maybe_refresh_chatgpt_tokens(config).await {
+        Ok(c) => c,
+        Err(msg) => return Ok(error_stream(missing_config_finished(msg))),
+    };
+
     let provider: Box<dyn ChatProvider> = provider_for(config.clone());
     let stream = adapt_chat_stream(user_query, config.system_prompt.clone(), provider).boxed();
     Ok(stream)
+}
+
+#[cfg(not(target_family = "wasm"))]
+async fn maybe_refresh_chatgpt_tokens(mut config: ProviderConfig) -> Result<ProviderConfig, String> {
+    use crate::ai::codex_auth::{refresh_codex_tokens, CodexTokens};
+
+    if config.kind != ProviderKind::ChatGpt {
+        return Ok(config);
+    }
+    let snap = current_byo_snapshot();
+    let tokens = CodexTokens {
+        access_token: config.api_key.clone(),
+        refresh_token: if snap.chatgpt_refresh_token.is_empty() {
+            None
+        } else {
+            Some(snap.chatgpt_refresh_token.clone())
+        },
+        id_token: None,
+        expires_at: snap.chatgpt_token_expires_at,
+    };
+    if tokens.is_access_token_likely_valid() {
+        return Ok(config);
+    }
+    if tokens.refresh_token.is_none() {
+        return Err(
+            "ChatGPT login is missing a refresh token. Re-run \"Sign in with ChatGPT\" \
+             from Settings → AI."
+                .into(),
+        );
+    }
+    let refreshed = refresh_codex_tokens(&tokens)
+        .await
+        .map_err(|e| format!("Could not refresh ChatGPT access token: {e}"))?;
+
+    // Update the in-memory snapshot so subsequent requests in this
+    // session pick up the new access token even if the persistence
+    // round-trip hasn't happened yet.
+    {
+        let mut snap = BYO_SNAPSHOT.write();
+        snap.api_key = refreshed.access_token.clone();
+        if let Some(rt) = &refreshed.refresh_token {
+            snap.chatgpt_refresh_token = rt.clone();
+        }
+        snap.chatgpt_token_expires_at = refreshed.expires_at;
+    }
+
+    if let Some(tx) = CHATGPT_PERSIST_TX.get() {
+        let _ = tx.try_send(refreshed.clone());
+    }
+
+    config.api_key = refreshed.access_token;
+    Ok(config)
+}
+
+#[cfg(target_family = "wasm")]
+async fn maybe_refresh_chatgpt_tokens(config: ProviderConfig) -> Result<ProviderConfig, String> {
+    Ok(config)
 }
 
 // ---------------------------------------------------------------------------
@@ -116,14 +208,21 @@ fn load_provider_config() -> Result<ProviderConfig, String> {
     let kind = match kind_raw.to_ascii_lowercase().as_str() {
         "anthropic" => ProviderKind::Anthropic,
         "openai" | "openai-compatible" | "compatible" => ProviderKind::OpenAI,
-        other => return Err(format!("BYO provider {other:?} is not 'anthropic' or 'openai'")),
+        "chatgpt" | "codex" => ProviderKind::ChatGpt,
+        other => return Err(format!(
+            "BYO provider {other:?} is not 'anthropic', 'openai', or 'chatgpt'"
+        )),
     };
 
     let api_key = if !snap.api_key.is_empty() {
         snap.api_key.clone()
     } else {
-        std::env::var(ENV_API_KEY).map_err(|_| {
-            "BYO API key is empty. Set it in Settings → AI, or export WARP_BYO_API_KEY.".to_string()
+        std::env::var(ENV_API_KEY).map_err(|_| match kind {
+            ProviderKind::ChatGpt => "Not signed in to ChatGPT. Open Settings → AI → \
+                 \"Sign in with ChatGPT\" to authenticate."
+                .to_string(),
+            _ => "BYO API key is empty. Set it in Settings → AI, or export WARP_BYO_API_KEY."
+                .to_string(),
         })?
     };
 
@@ -131,6 +230,7 @@ fn load_provider_config() -> Result<ProviderConfig, String> {
         .unwrap_or_else(|| match kind {
             ProviderKind::Anthropic => "claude-sonnet-4-5-20250929".to_string(),
             ProviderKind::OpenAI => "gpt-4o-mini".to_string(),
+            ProviderKind::ChatGpt => "gpt-5-codex".to_string(),
         });
 
     let base_url = first_non_empty(&snap.base_url, std::env::var(ENV_BASE_URL).ok().as_deref());

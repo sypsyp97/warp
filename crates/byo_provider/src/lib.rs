@@ -58,6 +58,12 @@ pub enum ProviderKind {
     /// `https://api.openai.com/v1`; override `base_url` to target any
     /// OpenAI-compatible server (Azure, Ollama, vLLM, OpenRouter, ...).
     OpenAI,
+    /// ChatGPT subscription backend used by the Codex CLI: OAuth access
+    /// token (no API key), Responses API (`/codex/responses`), and a
+    /// distinct streaming event shape (`response.output_text.delta`).
+    /// `api_key` carries the OAuth access token; `base_url` defaults to
+    /// `https://chatgpt.com/backend-api`.
+    ChatGpt,
 }
 
 /// User-configured connection parameters.  Persisted under
@@ -586,5 +592,212 @@ pub fn provider_for(config: ProviderConfig) -> Box<dyn ChatProvider> {
     match config.kind {
         ProviderKind::Anthropic => Box::new(AnthropicProvider::new(config)),
         ProviderKind::OpenAI => Box::new(OpenAIProvider::new(config)),
+        ProviderKind::ChatGpt => Box::new(ChatGptProvider::new(config)),
     }
+}
+
+// ---------------------------------------------------------------------------
+// ChatGPT subscription backend (Codex CLI)
+// ---------------------------------------------------------------------------
+
+const CHATGPT_DEFAULT_BASE_URL: &str = "https://chatgpt.com/backend-api";
+
+pub struct ChatGptProvider {
+    config: ProviderConfig,
+    http: reqwest::Client,
+}
+
+impl ChatGptProvider {
+    pub fn new(config: ProviderConfig) -> Self {
+        debug_assert_eq!(config.kind, ProviderKind::ChatGpt);
+        Self {
+            config,
+            http: reqwest::Client::new(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct ChatGptRequestBody<'a> {
+    model: &'a str,
+    input: Vec<ChatGptInputMessage<'a>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    instructions: Option<&'a str>,
+    stream: bool,
+    store: bool,
+}
+
+#[derive(Serialize)]
+struct ChatGptInputMessage<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    role: &'a str,
+    content: Vec<ChatGptInputContent<'a>>,
+}
+
+#[derive(Serialize)]
+struct ChatGptInputContent<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    text: &'a str,
+}
+
+/// Subset of the Responses-API streamed events we care about for plain
+/// text streaming. The full event set includes tool-call deltas, audio,
+/// reasoning, etc. — we ignore them.
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+#[allow(dead_code)]
+enum ChatGptSseEvent {
+    #[serde(rename = "response.output_text.delta")]
+    OutputTextDelta { delta: String },
+    #[serde(rename = "response.output_text.done")]
+    OutputTextDone {},
+    #[serde(rename = "response.completed")]
+    Completed { response: ChatGptCompletedMeta },
+    #[serde(rename = "response.failed")]
+    Failed {
+        #[serde(default)]
+        response: ChatGptFailedMeta,
+    },
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct ChatGptCompletedMeta {
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    incomplete_details: Option<ChatGptIncompleteDetails>,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct ChatGptIncompleteDetails {
+    #[serde(default)]
+    reason: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+#[allow(dead_code)]
+struct ChatGptFailedMeta {
+    #[serde(default)]
+    error: Option<ChatGptError>,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct ChatGptError {
+    #[serde(default)]
+    message: Option<String>,
+    #[serde(default)]
+    code: Option<String>,
+}
+
+#[async_trait]
+impl ChatProvider for ChatGptProvider {
+    async fn stream_chat(&self, messages: Vec<Message>) -> Result<ChatStream, ProviderError> {
+        let base = self
+            .config
+            .base_url
+            .as_deref()
+            .unwrap_or(CHATGPT_DEFAULT_BASE_URL)
+            .trim_end_matches('/');
+        let url = format!("{base}/codex/responses");
+
+        let wire_messages: Vec<_> = messages
+            .iter()
+            .map(|m| ChatGptInputMessage {
+                kind: "message",
+                role: match m.role {
+                    Role::User => "user",
+                    Role::Assistant => "assistant",
+                },
+                content: vec![ChatGptInputContent {
+                    kind: match m.role {
+                        Role::User => "input_text",
+                        Role::Assistant => "output_text",
+                    },
+                    text: m.content.as_str(),
+                }],
+            })
+            .collect();
+
+        let body = ChatGptRequestBody {
+            model: &self.config.model,
+            input: wire_messages,
+            instructions: self.config.system_prompt.as_deref(),
+            stream: true,
+            // ChatGPT subscription quotas don't support server-side
+            // conversation persistence; we manage history client-side.
+            store: false,
+        };
+
+        let response = self
+            .http
+            .post(&url)
+            .header(
+                "authorization",
+                format!("Bearer {}", self.config.api_key),
+            )
+            .header("content-type", "application/json")
+            .header("accept", "text/event-stream")
+            // Codex CLI sends this; the backend uses it to disambiguate
+            // the originator. Harmless if the server ignores it.
+            .header("originator", "warp_slim_byo")
+            .json(&body)
+            .send()
+            .await?;
+
+        let response = check_response_status(response).await?;
+        let bytes = response.bytes_stream();
+        Ok(parse_chatgpt_sse(bytes).boxed())
+    }
+}
+
+fn parse_chatgpt_sse(
+    bytes: impl Stream<Item = reqwest::Result<bytes::Bytes>> + Send + 'static,
+) -> impl Stream<Item = Result<ChatStreamEvent, ProviderError>> + Send {
+    SseLines::new(bytes).filter_map(|line| async move {
+        let line = match line {
+            Ok(l) => l,
+            Err(e) => return Some(Err(e)),
+        };
+        let payload = line.strip_prefix("data: ")?;
+        if payload == "[DONE]" {
+            return Some(Ok(ChatStreamEvent::Stop {
+                reason: StopReason::EndTurn,
+            }));
+        }
+        match serde_json::from_str::<ChatGptSseEvent>(payload) {
+            Ok(ChatGptSseEvent::OutputTextDelta { delta }) if !delta.is_empty() => {
+                Some(Ok(ChatStreamEvent::Delta(delta)))
+            }
+            Ok(ChatGptSseEvent::Completed { response }) => {
+                let reason = response
+                    .incomplete_details
+                    .as_ref()
+                    .and_then(|d| d.reason.as_deref())
+                    .map(|r| match r {
+                        "max_output_tokens" => StopReason::MaxTokens,
+                        _ => StopReason::Unknown,
+                    })
+                    .unwrap_or(StopReason::EndTurn);
+                Some(Ok(ChatStreamEvent::Stop { reason }))
+            }
+            Ok(ChatGptSseEvent::Failed { response }) => {
+                let msg = response
+                    .error
+                    .and_then(|e| e.message)
+                    .unwrap_or_else(|| "ChatGPT backend reported failure".to_string());
+                Some(Err(ProviderError::Other(anyhow::anyhow!(msg))))
+            }
+            Ok(_) => None,
+            Err(e) => Some(Err(ProviderError::Malformed(format!(
+                "chatgpt sse: {e} ({payload})"
+            )))),
+        }
+    })
 }

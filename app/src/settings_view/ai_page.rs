@@ -32,7 +32,7 @@ use crate::settings::{
 use crate::terminal::session_settings::{SessionSettings, SessionSettingsChangedEvent};
 use crate::terminal::CLIAgent;
 use crate::view_components::{
-    action_button::{ActionButton, ButtonSize, SecondaryTheme},
+    action_button::{ActionButton, ButtonSize, PrimaryTheme, SecondaryTheme},
     FilterableDropdown, SubmittableTextInput, SubmittableTextInputEvent,
 };
 use crate::workspaces::user_workspaces::UserWorkspacesEvent;
@@ -1979,6 +1979,14 @@ pub enum AISettingsPageAction {
         pattern: String,
         agent: Option<CLIAgent>,
     },
+    /// Kick off the Sign-in-with-ChatGPT OAuth flow (BYO LLM Provider
+    /// section). Triggered by the "Sign in with ChatGPT" button in
+    /// `ByoLlmProviderWidget`.
+    StartChatGptSignIn,
+    /// Forget any stored ChatGPT OAuth tokens. Doesn't revoke server-side
+    /// — the user has to revoke via chatgpt.com if they want that — just
+    /// drops the access/refresh/id tokens from local settings.
+    SignOutChatGpt,
 }
 
 impl TypedActionView for AISettingsPageView {
@@ -2601,7 +2609,76 @@ impl TypedActionView for AISettingsPageView {
                 });
                 ctx.notify();
             }
+            AISettingsPageAction::StartChatGptSignIn => {
+                Self::start_chatgpt_sign_in(ctx);
+            }
+            AISettingsPageAction::SignOutChatGpt => {
+                AISettings::handle(ctx).update(ctx, |settings, ctx| {
+                    let _ = settings.byo_api_key.set_value(String::new(), ctx);
+                    let _ = settings
+                        .byo_chatgpt_refresh_token
+                        .set_value(String::new(), ctx);
+                    let _ = settings.byo_chatgpt_id_token.set_value(String::new(), ctx);
+                    let _ = settings.byo_chatgpt_token_expires_at.set_value(0, ctx);
+                });
+                ctx.notify();
+            }
         }
+    }
+}
+
+impl AISettingsPageView {
+    /// Drive the Sign-in-with-ChatGPT OAuth handshake. Opens the
+    /// auth URL in the user's browser, binds 127.0.0.1:1455 for the
+    /// callback, exchanges the resulting code for tokens, and writes
+    /// them into AISettings (also flipping `byo_provider_kind` to
+    /// `"chatgpt"` so subsequent AI requests route through the ChatGPT
+    /// backend automatically).
+    #[cfg(not(target_family = "wasm"))]
+    fn start_chatgpt_sign_in(ctx: &mut ViewContext<Self>) {
+        use crate::ai::codex_auth;
+
+        let (flow, auth_url) = match codex_auth::start_authorization() {
+            Ok(pair) => pair,
+            Err(e) => {
+                log::warn!("Could not start ChatGPT sign-in: {e:#}");
+                return;
+            }
+        };
+        ctx.open_url(&auth_url);
+
+        ctx.spawn(flow.wait_for_callback(), |_view, result, ctx| {
+            let tokens = match result {
+                Ok(t) => t,
+                Err(e) => {
+                    log::warn!("ChatGPT sign-in failed: {e:#}");
+                    return;
+                }
+            };
+            AISettings::handle(ctx).update(ctx, |settings, ctx| {
+                let _ = settings
+                    .byo_provider_kind
+                    .set_value("chatgpt".to_string(), ctx);
+                let _ = settings
+                    .byo_api_key
+                    .set_value(tokens.access_token.clone(), ctx);
+                if let Some(rt) = tokens.refresh_token.clone() {
+                    let _ = settings.byo_chatgpt_refresh_token.set_value(rt, ctx);
+                }
+                if let Some(idt) = tokens.id_token.clone() {
+                    let _ = settings.byo_chatgpt_id_token.set_value(idt, ctx);
+                }
+                let _ = settings
+                    .byo_chatgpt_token_expires_at
+                    .set_value(tokens.expires_at, ctx);
+            });
+            ctx.notify();
+        });
+    }
+
+    #[cfg(target_family = "wasm")]
+    fn start_chatgpt_sign_in(_ctx: &mut ViewContext<Self>) {
+        log::warn!("ChatGPT sign-in is not supported in wasm builds");
     }
 }
 
@@ -5624,6 +5701,8 @@ struct ByoLlmProviderWidget {
     model_editor: ViewHandle<EditorView>,
     base_url_editor: ViewHandle<EditorView>,
     system_prompt_editor: ViewHandle<EditorView>,
+    chatgpt_sign_in_button: ViewHandle<ActionButton>,
+    chatgpt_sign_out_button: ViewHandle<ActionButton>,
 }
 
 impl ByoLlmProviderWidget {
@@ -5673,12 +5752,31 @@ impl ByoLlmProviderWidget {
             let _ = settings.byo_system_prompt.set_value(value, ctx);
         });
 
+        let chatgpt_sign_in_button = ctx.add_typed_action_view(|_| {
+            ActionButton::new("Sign in with ChatGPT", PrimaryTheme)
+                .with_icon(Icon::OpenAILogo)
+                .with_size(ButtonSize::Small)
+                .on_click(|ctx| {
+                    ctx.dispatch_typed_action(AISettingsPageAction::StartChatGptSignIn);
+                })
+        });
+
+        let chatgpt_sign_out_button = ctx.add_typed_action_view(|_| {
+            ActionButton::new("Sign out", SecondaryTheme)
+                .with_size(ButtonSize::Small)
+                .on_click(|ctx| {
+                    ctx.dispatch_typed_action(AISettingsPageAction::SignOutChatGpt);
+                })
+        });
+
         Self {
             provider_kind_editor,
             api_key_editor,
             model_editor,
             base_url_editor,
             system_prompt_editor,
+            chatgpt_sign_in_button,
+            chatgpt_sign_out_button,
         }
     }
 
@@ -5839,6 +5937,29 @@ impl SettingsWidget for ByoLlmProviderWidget {
             is_any_ai_enabled,
             app,
         ));
+
+        let signed_in = !ai_settings.byo_chatgpt_refresh_token.value().is_empty();
+        let chatgpt_button = if signed_in {
+            self.chatgpt_sign_out_button.as_ref(app).render(app)
+        } else {
+            self.chatgpt_sign_in_button.as_ref(app).render(app)
+        };
+        let chatgpt_label = if signed_in {
+            "Signed in with ChatGPT — sign out to switch accounts."
+        } else {
+            "Or sign in with your ChatGPT account to use Codex without an API key."
+        };
+        column.add_child(
+            Flex::column()
+                .with_spacing(8.)
+                .with_child(render_ai_setting_description(
+                    chatgpt_label.to_string(),
+                    is_any_ai_enabled,
+                    app,
+                ))
+                .with_child(chatgpt_button)
+                .finish(),
+        );
 
         Container::new(column.finish())
             .with_margin_bottom(HEADER_PADDING)
