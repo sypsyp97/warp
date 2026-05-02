@@ -5610,6 +5610,15 @@ impl SettingsWidget for ApiKeysWidget {
         "api keys bring your own byo openai anthropic google claude gemini gpt"
     }
 
+    fn should_render(&self, app: &AppContext) -> bool {
+        // Slim builds use ByoLlmProviderWidget below for direct-to-provider routing,
+        // so this Warp-credit-aware BYOK section is only useful when the user is on
+        // a workspace tier that enables it (or has the SoloUserByok feature on).
+        // When neither, the inputs would render disabled with an upgrade CTA — pure
+        // confusion for slim users — so hide the whole section instead.
+        UserWorkspaces::as_ref(app).is_byo_api_key_enabled()
+    }
+
     fn render(
         &self,
         view: &Self::View,
