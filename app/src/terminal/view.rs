@@ -15906,21 +15906,6 @@ impl TerminalView {
         );
         items.push(MenuItem::Separator);
 
-        if FeatureFlag::CloudConversations.is_enabled() {
-            let history_model = BlocklistAIHistoryModel::as_ref(ctx);
-            if history_model.can_conversation_be_shared(&ai_conversation_id) {
-                items.push(
-                    MenuItemFields::new("Share conversation")
-                        .with_on_select_action(TerminalAction::ContextMenu(
-                            ContextMenuAction::OpenConversationShareDialog {
-                                conversation_id: ai_conversation_id,
-                            },
-                        ))
-                        .into_item(),
-                );
-            }
-        }
-
         items.push(
             MenuItemFields::new("Copy conversation text")
                 .with_on_select_action(TerminalAction::ContextMenu(
