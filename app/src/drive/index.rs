@@ -345,7 +345,6 @@ pub enum DriveIndexAction {
     ManageBilling {
         team_uid: ServerId,
     },
-    DismissPersonalObjectLimits,
     SetCurrentWorkspace(WorkspaceUid),
     AttachPlanAsContext(AIDocumentId),
 }
@@ -498,7 +497,6 @@ pub struct DriveIndex {
     auth_state: Arc<AuthState>,
     space_menu_open_for_space: Option<SpaceMenuState>,
     show_warp_drive_loading_icon: bool,
-    should_show_personal_object_limit_status: bool,
     /// A hashmap of location (space/folder) to a list of hashed IDs of objects inside
     /// the space/folder, used for rendering our objects
     sorted_orders_by_location: HashMap<CloudObjectLocation, Vec<ObjectUid>>,
@@ -971,7 +969,6 @@ impl DriveIndex {
             has_initialized_sections: Default::default(),
             num_errored_objects: Default::default(),
             share_dialog_open_for_object: None,
-            should_show_personal_object_limit_status: true,
             workspace_dropdown,
             ai_fact_collection,
             ai_fact_collection_item_mouse_states: Default::default(),
@@ -3505,21 +3502,6 @@ impl DriveIndex {
         });
     }
 
-    fn dismiss_personal_object_limit_status(&mut self, ctx: &mut ViewContext<Self>) {
-        self.should_show_personal_object_limit_status = false;
-        ctx.notify();
-    }
-
-    fn render_personal_limit_status(
-        &self,
-        _appearance: &Appearance,
-        _ctx: &AppContext,
-    ) -> Option<Box<dyn Element>> {
-        // Slim fork: anonymous-user object limits don't exist, so the
-        // personal-limit status card never renders.
-        None
-    }
-
     fn render_shared_object_limit_hit_banner(
         &self,
         appearance: &Appearance,
@@ -4459,31 +4441,7 @@ impl View for DriveIndex {
         )
         .finish();
 
-        let index_content = if let (true, Some(personal_object_limit_card)) = (
-            self.should_show_personal_object_limit_status,
-            self.render_personal_limit_status(appearance, app),
-        ) {
-            // Render column with a spacer to ensure the tip appears at the bottom of drive
-            let col = Flex::column()
-                .with_child(index)
-                .with_child(Shrinkable::new(1., Empty::new().finish()).finish())
-                .finish();
-
-            let mut stack = Stack::new().with_constrain_absolute_children();
-            stack.add_child(col);
-            stack.add_positioned_child(
-                personal_object_limit_card,
-                OffsetPositioning::offset_from_parent(
-                    vec2f(0., 0.),
-                    ParentOffsetBounds::WindowByPosition,
-                    ParentAnchor::BottomMiddle,
-                    ChildAnchor::BottomMiddle,
-                ),
-            );
-            stack.finish()
-        } else {
-            index
-        };
+        let index_content = index;
 
         let mut drive = Flex::column();
 
@@ -4942,9 +4900,6 @@ impl TypedActionView for DriveIndex {
                     SharingDialogSource::DriveIndex,
                     ctx,
                 );
-            }
-            DriveIndexAction::DismissPersonalObjectLimits => {
-                self.dismiss_personal_object_limit_status(ctx);
             }
             DriveIndexAction::SetCurrentWorkspace(workspace_uid) => {
                 TeamUpdateManager::handle(ctx).update(ctx, |manager, ctx| {
