@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use warp_core::features::FeatureFlag;
 use warpui::{AppContext, Entity, EntityId, ModelContext, SingletonEntity, WindowId};
 
 use crate::settings::AISettings;
@@ -14,10 +13,7 @@ use crate::ai::agent_management::notifications::{
 use crate::ai::artifacts::Artifact;
 use crate::ai::blocklist::BlocklistAIHistoryEvent;
 use crate::server::telemetry::TelemetryEvent;
-use crate::terminal::cli_agent_sessions::{
-    CLIAgentSessionStatus, CLIAgentSessionsModel, CLIAgentSessionsModelEvent,
-};
-use crate::terminal::CLIAgent;
+use crate::terminal::cli_agent_sessions::{CLIAgentSessionsModel, CLIAgentSessionsModelEvent};
 use crate::workspace::util::is_terminal_view_in_same_tab;
 use crate::workspace::{Workspace, WorkspaceRegistry};
 use crate::BlocklistAIHistoryModel;
@@ -82,119 +78,23 @@ impl AgentNotificationsModel {
     /// Marks all notifications from the given terminal view as read.
     pub(crate) fn mark_items_from_terminal_view_read(
         &mut self,
-        terminal_view_id: EntityId,
-        ctx: &mut ModelContext<Self>,
+        _terminal_view_id: EntityId,
+        _ctx: &mut ModelContext<Self>,
     ) {
-        if !FeatureFlag::HOANotifications.is_enabled() {
-            return;
-        }
-        if self
-            .notifications
-            .mark_all_terminal_view_items_as_read(terminal_view_id)
-        {
-            ctx.emit(AgentManagementEvent::NotificationUpdated);
-        }
     }
 
     fn handle_active_agent_views_changed(
         &mut self,
-        event: &ActiveAgentViewsEvent,
-        ctx: &mut ModelContext<Self>,
+        _event: &ActiveAgentViewsEvent,
+        _ctx: &mut ModelContext<Self>,
     ) {
-        if !FeatureFlag::HOANotifications.is_enabled() {
-            return;
-        }
-
-        match event {
-            ActiveAgentViewsEvent::ConversationClosed { conversation_id } => {
-                // When a conversation is closed, clean up its notifications
-                // (as there's no conversation to navigate to when you click said notifications).
-                if self
-                    .notifications
-                    .remove_by_origin(NotificationOrigin::Conversation(*conversation_id))
-                {
-                    ctx.emit(AgentManagementEvent::NotificationUpdated);
-                }
-            }
-            ActiveAgentViewsEvent::TerminalViewFocused
-            | ActiveAgentViewsEvent::WindowClosed
-            | ActiveAgentViewsEvent::AmbientSessionOpened { .. }
-            | ActiveAgentViewsEvent::AmbientSessionClosed { .. } => {}
-        }
     }
 
     fn handle_cli_agent_session_event(
         &mut self,
-        event: &CLIAgentSessionsModelEvent,
-        ctx: &mut ModelContext<Self>,
+        _event: &CLIAgentSessionsModelEvent,
+        _ctx: &mut ModelContext<Self>,
     ) {
-        if !FeatureFlag::HOANotifications.is_enabled() {
-            return;
-        }
-
-        match event {
-            CLIAgentSessionsModelEvent::Ended {
-                terminal_view_id, ..
-            } => {
-                self.remove_notification_by_source(
-                    NotificationOrigin::CLISession(*terminal_view_id),
-                    ctx,
-                );
-            }
-            CLIAgentSessionsModelEvent::Started { .. }
-            | CLIAgentSessionsModelEvent::InputSessionChanged { .. }
-            | CLIAgentSessionsModelEvent::SessionUpdated { .. } => {}
-            CLIAgentSessionsModelEvent::StatusChanged {
-                terminal_view_id,
-                agent,
-                status,
-                session_context,
-            } => match status {
-                // When the agent resumes its work we can assume that the previous notification is stale.
-                CLIAgentSessionStatus::InProgress => {
-                    self.remove_notification_by_source(
-                        NotificationOrigin::CLISession(*terminal_view_id),
-                        ctx,
-                    );
-                }
-                CLIAgentSessionStatus::Success => {
-                    let title = session_context
-                        .display_title()
-                        .unwrap_or_else(|| format!("{} completed", agent.display_name()));
-                    let message = match agent {
-                        CLIAgent::Codex => "Notification from Codex",
-                        _ => "Task completed.",
-                    };
-                    self.add_notification(
-                        title,
-                        message.to_owned(),
-                        NotificationCategory::Complete,
-                        NotificationSourceAgent::CLI(*agent),
-                        NotificationOrigin::CLISession(*terminal_view_id),
-                        *terminal_view_id,
-                        vec![],
-                        ctx,
-                    );
-                }
-                CLIAgentSessionStatus::Blocked { message } => {
-                    let title = session_context
-                        .display_title()
-                        .unwrap_or_else(|| format!("{} needs attention", agent.display_name()));
-                    self.add_notification(
-                        title,
-                        message
-                            .clone()
-                            .unwrap_or_else(|| "Waiting for input.".to_owned()),
-                        NotificationCategory::Request,
-                        NotificationSourceAgent::CLI(*agent),
-                        NotificationOrigin::CLISession(*terminal_view_id),
-                        *terminal_view_id,
-                        vec![],
-                        ctx,
-                    );
-                }
-            },
-        }
     }
 
     fn handle_history_event(
@@ -202,37 +102,20 @@ impl AgentNotificationsModel {
         event: &BlocklistAIHistoryEvent,
         ctx: &mut ModelContext<Self>,
     ) {
-        // When a conversation is deleted or removed, clean up its notification and pending artifacts.
-        if let BlocklistAIHistoryEvent::DeletedConversation {
-            conversation_id, ..
-        }
-        | BlocklistAIHistoryEvent::RemoveConversation {
-            conversation_id, ..
-        } = event
-        {
-            if FeatureFlag::HOANotifications.is_enabled() {
-                self.pending_artifacts.remove(conversation_id);
-                self.remove_notification_by_source(
-                    NotificationOrigin::Conversation(*conversation_id),
-                    ctx,
-                );
-            }
+        // When a conversation is deleted or removed, drop any handling.
+        if matches!(
+            event,
+            BlocklistAIHistoryEvent::DeletedConversation { .. }
+                | BlocklistAIHistoryEvent::RemoveConversation { .. }
+        ) {
             return;
         }
 
-        // Accumulate artifacts as they arrive during the conversation.
-        if let BlocklistAIHistoryEvent::UpdatedConversationArtifacts {
-            conversation_id,
-            artifact,
-            ..
-        } = event
-        {
-            if FeatureFlag::HOANotifications.is_enabled() {
-                self.pending_artifacts
-                    .entry(*conversation_id)
-                    .or_default()
-                    .push(artifact.clone());
-            }
+        // Accumulate artifacts is no longer wired up for slim — drop the event.
+        if matches!(
+            event,
+            BlocklistAIHistoryEvent::UpdatedConversationArtifacts { .. }
+        ) {
             return;
         }
 
@@ -256,19 +139,6 @@ impl AgentNotificationsModel {
         }
 
         let status = updated_conversation.status().clone();
-        let latest_query = updated_conversation.latest_user_query();
-        if FeatureFlag::HOANotifications.is_enabled() {
-            self.handle_history_event_for_mailbox(
-                &status,
-                *conversation_id,
-                latest_query,
-                *terminal_view_id,
-                ctx,
-            );
-            // The new mailbox path handled the event — skip the legacy toast path below.
-            return;
-        }
-
         if !status.should_trigger_notification() {
             return;
         }

@@ -107,8 +107,8 @@ pub(crate) use self::environment_selector::{EnvironmentSelector, EnvironmentSele
 use crate::server::telemetry::PluginChipTelemetryAction;
 #[cfg(not(target_family = "wasm"))]
 use crate::terminal::cli_agent_sessions::plugin_manager::{
-    compare_versions, plugin_manager_for, plugin_manager_for_with_shell, CliAgentPluginManager,
-    PluginInstallError, PluginModalKind,
+    plugin_manager_for, plugin_manager_for_with_shell, CliAgentPluginManager, PluginInstallError,
+    PluginModalKind,
 };
 #[cfg(not(target_family = "wasm"))]
 use crate::view_components::ToastLink;
@@ -836,87 +836,10 @@ impl AgentInputFooter {
         );
     }
 
-    /// Which plugin chip to show, if any.
-    fn plugin_chip_kind(&self, app: &AppContext) -> Option<PluginChipKind> {
-        #[cfg(target_family = "wasm")]
-        {
-            let _ = (app, self.plugin_operation_in_progress);
-            None
-        }
-        #[cfg(not(target_family = "wasm"))]
-        {
-            if self.plugin_operation_in_progress {
-                return None;
-            }
-            if !FeatureFlag::HOANotifications.is_enabled() {
-                return None;
-            }
-
-            let ai_settings = AISettings::as_ref(app);
-            if !*ai_settings.show_agent_notifications {
-                return None;
-            }
-
-            let session = CLIAgentSessionsModel::as_ref(app).session(self.terminal_view_id)?;
-
-            let manager = plugin_manager_for(session.agent)?;
-            let min_version = manager.minimum_plugin_version();
-            let chip_key = plugin_chip_key(session.agent.command_prefix(), &session.remote_host);
-
-            // If the plugin is connected (listener present) and this agent supports
-            // version-based updates, check the reported version.
-            if session.listener.is_some() && manager.supports_update() {
-                let needs_update = match &session.plugin_version {
-                    // No version reported = pre-versioning plugin, definitely outdated.
-                    None => true,
-                    Some(v) => compare_versions(v, min_version).is_lt(),
-                };
-                if !needs_update {
-                    return None;
-                }
-                // Check update chip dismissal.
-                let dismissed_version = ai_settings.plugin_update_chip_dismissed_version(&chip_key);
-                if !dismissed_version.is_empty()
-                    && compare_versions(dismissed_version, min_version).is_ge()
-                {
-                    return None;
-                }
-                return Some(PluginChipKind::Update);
-            }
-
-            // For agents without auto-install, wait for the debounce timer
-            // before showing the install chip.
-            if !manager.can_auto_install() && !self.plugin_chip_ready {
-                return None;
-            }
-
-            let install_chip_dismissed = ai_settings.is_plugin_install_chip_dismissed(&chip_key);
-
-            // For remote sessions, we can't check the filesystem.
-            if session.is_remote() {
-                return (!install_chip_dismissed).then_some(PluginChipKind::Install);
-            }
-
-            if manager.is_installed() {
-                // Installed but no listener yet. Check the on-disk version as a fallback
-                // — the plugin may be too old to send structured events.
-                if manager.needs_update() {
-                    let dismissed_version =
-                        ai_settings.plugin_update_chip_dismissed_version(&chip_key);
-                    if !dismissed_version.is_empty()
-                        && compare_versions(dismissed_version, min_version).is_ge()
-                    {
-                        return None;
-                    }
-                    return Some(PluginChipKind::Update);
-                }
-                // Up to date on disk — wait for the listener to connect.
-                return None;
-            }
-
-            // Not installed locally.
-            (!install_chip_dismissed).then_some(PluginChipKind::Install)
-        }
+    /// Which plugin chip to show, if any. Plugin chips are gated on HOA notifications
+    /// (dropped from slim), so this is always `None`.
+    fn plugin_chip_kind(&self, _app: &AppContext) -> Option<PluginChipKind> {
+        None
     }
 
     /// Whether the chip should open the manual instructions modal instead of auto-operating.

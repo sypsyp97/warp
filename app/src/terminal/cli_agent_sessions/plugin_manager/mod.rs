@@ -11,14 +11,10 @@ use std::path::PathBuf;
 
 use async_trait::async_trait;
 
-use crate::features::FeatureFlag;
 use crate::terminal::model::session::LocalCommandExecutor;
 use crate::terminal::shell::ShellType;
 use crate::terminal::CLIAgent;
 use claude::ClaudeCodePluginManager;
-use codex::CodexPluginManager;
-use gemini::GeminiPluginManager;
-use opencode::OpenCodePluginManager;
 
 /// Distinguishes whether the plugin instructions modal should show install or update steps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -232,28 +228,6 @@ pub(crate) fn plugin_manager_for_with_shell(
             shell_type,
             path_env_var,
         ))),
-        CLIAgent::OpenCode
-            if FeatureFlag::OpenCodeNotifications.is_enabled()
-                && FeatureFlag::HOANotifications.is_enabled() =>
-        {
-            Some(Box::new(OpenCodePluginManager))
-        }
-        CLIAgent::Codex
-            if FeatureFlag::CodexNotifications.is_enabled()
-                && FeatureFlag::HOANotifications.is_enabled() =>
-        {
-            Some(Box::new(CodexPluginManager))
-        }
-        CLIAgent::Gemini
-            if FeatureFlag::GeminiNotifications.is_enabled()
-                && FeatureFlag::HOANotifications.is_enabled() =>
-        {
-            Some(Box::new(GeminiPluginManager::new(
-                shell_path,
-                shell_type,
-                path_env_var,
-            )))
-        }
         CLIAgent::OpenCode
         | CLIAgent::Codex
         | CLIAgent::Gemini
