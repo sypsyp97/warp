@@ -47,6 +47,20 @@ impl WarpServerConfig {
             firebase_auth_api_key: "AIzaSyBdy3O3S9hrdayLJxJ7mriBR4qgUaUygAs".into(),
         }
     }
+
+    /// Stub server config for slim/offline builds. The URLs parse cleanly so callers
+    /// using `Url::parse` don't blow up, but they don't resolve. Slim's default
+    /// feature config has every cloud-touching path gated off, so nothing should
+    /// actually try to dial these — if you see a connection attempt to localhost
+    /// from a slim build, it means a flag is unexpectedly on.
+    pub fn slim_stub() -> Self {
+        Self {
+            server_root_url: "https://localhost.invalid".into(),
+            rtc_server_url: "wss://localhost.invalid".into(),
+            session_sharing_server_url: None,
+            firebase_auth_api_key: "".into(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -64,6 +78,14 @@ impl OzConfig {
     pub fn production() -> Self {
         Self {
             oz_root_url: "https://oz.warp.dev".into(),
+            workload_audience_url: None,
+        }
+    }
+
+    /// Stub Oz config for slim/offline builds. See [`WarpServerConfig::slim_stub`].
+    pub fn slim_stub() -> Self {
+        Self {
+            oz_root_url: "https://localhost.invalid".into(),
             workload_audience_url: None,
         }
     }
