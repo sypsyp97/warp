@@ -91,7 +91,6 @@ use crate::terminal::view::{
     NotificationsDiscoveryBannerAction, NotificationsErrorBannerAction, NotificationsTrigger,
 };
 use crate::terminal::ShareBlockType;
-use crate::tips::WelcomeTipFeature;
 #[cfg(feature = "local_fs")]
 use crate::util::file::external_editor::settings::EditorLayout;
 #[cfg(feature = "local_fs")]
@@ -297,15 +296,6 @@ pub struct EnvVarTelemetryMetadata {
     /// The team UID, only available for cloud env vars in a shared team.
     pub team_uid: Option<ServerId>,
     pub space: TelemetrySpace,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct MCPServerTelemetryMetadata {
-    pub object_id: GenericStringObjectId,
-    pub name: String,
-    pub transport_type: MCPServerTelemetryTransportType,
-    /// The MCP server string extracted from '@modelcontextprotocol/<...>'.
-    pub mcp_server: Option<String>,
 }
 
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]
@@ -667,17 +657,6 @@ pub enum AICommandSearchEntrypoint {
 pub enum SecretInteraction {
     RevealSecret,
     HideSecret,
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum AnonymousUserSignupEntrypoint {
-    HitDriveObjectLimit,
-    LoginGatedFeature,
-    SignUpButton,
-    RenotificationBlock,
-    SignUpAIPrompt,
-    NextCommandSuggestionsUpgradeBanner,
-    Unknown,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -1185,13 +1164,6 @@ pub enum SlashMenuSource {
     UserTyped,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum LoginEventSource {
-    OnboardingSlide,
-    AuthModal,
-}
-
 /// Details about which type of slash command was accepted
 #[derive(Clone, Debug, Serialize)]
 pub enum SlashCommandAcceptedDetails {
@@ -1199,22 +1171,6 @@ pub enum SlashCommandAcceptedDetails {
     StaticCommand { command_name: String },
     /// A user-created saved prompt/workflow
     SavedPrompt,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AutoReloadModalAction {
-    #[serde(rename = "dismissed")]
-    Dismissed,
-    #[serde(rename = "enabled_auto_reload")]
-    EnabledAutoReload,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum OutOfCreditsBannerAction {
-    #[serde(rename = "dismissed")]
-    Dismissed,
-    #[serde(rename = "credits_purchased")]
-    CreditsPurchased,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -1273,7 +1229,6 @@ pub enum TelemetryEvent {
     /// a number of commands that perform minimal work we use as a baseline.
     BaselineCommandLatency(BlockLatencyInfo),
     SessionCreation,
-    Login,
     OpenSuggestionsMenu(TelemetryInputSuggestionsMode),
     ConfirmSuggestion {
         mode: TelemetryInputSuggestionsMode,
@@ -1288,9 +1243,6 @@ pub enum TelemetryEvent {
     ContextMenuFindWithinBlocks(BlockSelectionCardinality),
     ContextMenuCopyPrompt {
         part: PromptPart,
-    },
-    ContextMenuToggleGitPromptDirtyIndicator {
-        enabled: bool,
     },
     ContextMenuInsertSelectedText,
     ContextMenuCopySelectedText,
@@ -1328,7 +1280,6 @@ pub enum TelemetryEvent {
     /// suggestions menu may be triggered with a keybinding other than tab.
     TabSingleResultAutocompletion,
     EditorUnhandledModifierKey(String),
-    CopyInviteLink,
     OpenThemeChooser,
     ThemeSelection {
         theme: String,
@@ -1344,12 +1295,6 @@ pub enum TelemetryEvent {
     CreateCustomTheme,
     DeleteCustomTheme,
     SplitPane,
-    UnableToAutoUpdateToNewVersion,
-    /// An update was successfully installed, and we're attempting to relaunch the app.
-    AutoupdateRelaunchAttempt {
-        new_version: String,
-    },
-    SkipOnboardingSurvey,
     ToggleRestoreSession(bool),
     DatabaseStartUpError(String),
     DatabaseReadError(String),
@@ -1383,12 +1328,6 @@ pub enum TelemetryEvent {
     WorkflowSelected(WorkflowTelemetryMetadata),
     OpenWorkflowSearch,
     OpenQuakeModeWindow,
-    OpenWelcomeTips,
-    CompleteWelcomeTipFeature {
-        total_completed_count: usize,
-        tip_name: WelcomeTipFeature,
-    },
-    DismissWelcomeTips,
     ShowNotificationsDiscoveryBanner,
     NotificationsDiscoveryBannerAction(NotificationsDiscoveryBannerAction),
     ShowNotificationsErrorBanner,
@@ -1415,16 +1354,6 @@ pub enum TelemetryEvent {
         option: FindOption,
         enabled: bool,
     },
-    SignUpButtonClicked,
-    LoginButtonClicked {
-        source: LoginEventSource,
-    },
-    LoginLaterButtonClicked {
-        source: LoginEventSource,
-    },
-    LoginLaterConfirmationButtonClicked {
-        source: LoginEventSource,
-    },
     OpenNewSessionFromFilePath,
     OpenTeamFromURI,
     ShowedSuggestedAgentModeWorkflowChip {
@@ -1447,15 +1376,6 @@ pub enum TelemetryEvent {
     PaletteSearchExited {
         filter: Option<QueryFilter>,
         buffer_length: usize,
-    },
-    AuthCommonQuestionClicked {
-        question: &'static str,
-    },
-    AuthToggleFAQ {
-        open: bool,
-    },
-    OpenAuthPrivacySettings {
-        source: LoginEventSource,
     },
     TabRenamed(TabRenameEvent),
     MoveActiveTab {
@@ -1488,14 +1408,10 @@ pub enum TelemetryEvent {
         link: GridHighlightedLink,
         open_with: LinkOpenMethod,
     },
-    OpenChangelogLink {
-        url: String,
-    },
     ShowInFileExplorer,
     CommandXRayTriggered {
         trigger: CommandXRayTrigger,
     },
-    OpenLaunchConfigSaveModal,
     SaveLaunchConfig {
         state: SaveState,
     },
@@ -1504,18 +1420,6 @@ pub enum TelemetryEvent {
         ui_location: LaunchConfigUiLocation,
         open_in_active_window: bool,
     },
-    TeamCreated,
-    TeamJoined,
-    TeamLeft,
-    ToggleSettingsSync {
-        is_settings_sync_enabled: bool,
-    },
-    TeamLinkCopied,
-    RemovedUserFromTeam,
-    DeletedWorkflow,
-    DeletedNotebook,
-    ToggleApprovalsModal,
-    SendEmailInvites,
     CommandCorrection {
         event: CommandCorrectionEvent,
     },
@@ -1720,12 +1624,6 @@ pub enum TelemetryEvent {
     EnableVimKeybindingsFromBanner,
     DismissVimKeybindingsBanner,
     InitiateReauth,
-    InitiateAnonymousUserSignup {
-        entrypoint: AnonymousUserSignupEntrypoint,
-    },
-    AnonymousUserExpirationLockout,
-    AnonymousUserLinkedFromBrowser,
-    AnonymousUserHitCloudObjectLimit,
     NeedsReauth,
     WarpDriveOpened {
         source: WarpDriveSource,
@@ -1738,7 +1636,6 @@ pub enum TelemetryEvent {
     ToggleSecretRedaction {
         enabled: bool,
     },
-    CustomSecretRegexAdded,
     ToggleObfuscateSecret {
         interaction: SecretInteraction,
     },
@@ -1808,10 +1705,6 @@ pub enum TelemetryEvent {
     },
     LogOut,
     SettingsImportInitiated,
-    InviteTeammates {
-        num_teammates: usize,
-        team_uid: ServerId,
-    },
     CopyObjectToClipboard(TelemetryCloudObjectType),
     OpenAndWarpifyDockerSubshell {
         /// Some variant if we support this shell type, and None otherwise.
@@ -1864,18 +1757,8 @@ pub enum TelemetryEvent {
     FileTreeItemCreated,
     /// Conversation list view was opened
     ConversationListViewOpened,
-    /// User opened a conversation from the conversation list
-    ConversationListItemOpened {
-        /// Whether the conversation is an ambient agent task (vs a local conversation)
-        is_ambient_agent: bool,
-    },
     /// User deleted a conversation from the conversation list
     ConversationListItemDeleted,
-    /// User copied a conversation link from the conversation list
-    ConversationListLinkCopied {
-        /// Whether the conversation is an ambient agent task (vs a local conversation)
-        is_ambient_agent: bool,
-    },
     /// Created a blocklist AI block.
     AgentModeCreatedAIBlock {
         /// The client-generated exchange ID for the AI exchange (input + output turn) rendered in this AI block.
@@ -2152,9 +2035,6 @@ pub enum TelemetryEvent {
         is_git_operations_autogen_enabled: bool,
     },
 
-    /// Emitted when the user toggles the "Voice Input" setting in the AI settings page.
-    ToggleVoiceInputSetting,
-
     /// Emitted when the user toggles the "Show Agent Tips" setting in the AI settings page.
     ToggleShowAgentTips {
         is_enabled: bool,
@@ -2206,7 +2086,6 @@ pub enum TelemetryEvent {
     },
     /// When parsing iTerm for settings it contained multiple hotkey bindings.
     ITermMultipleHotkeys,
-    UserMenuUpgradeClicked,
     ToggleWorkspaceDecorationVisibility {
         previous_value: WorkspaceDecorationVisibility,
         new_value: WorkspaceDecorationVisibility,
@@ -2321,24 +2200,12 @@ pub enum TelemetryEvent {
     /// This typically means the user hasn't installed or enabled WSL.
     #[cfg(windows)]
     WSLRegistryError,
-    #[cfg(windows)]
-    AutoupdateUnableToCloseApplications,
-    #[cfg(windows)]
-    AutoupdateFileInUse,
-    #[cfg(windows)]
-    AutoupdateMutexTimeout,
-    #[cfg(windows)]
-    AutoupdateForcekillFailed,
     ExecutedWarpDrivePrompt {
         id: Option<WorkflowId>,
         selection_source: WorkflowSelectionSource,
     },
     ImageReceived {
         image_protocol: ImageProtocol,
-    },
-    /// A file from the result of an AI Agent Action exceeded the context limit.
-    FileExceededContextLimit {
-        identifiers: AIIdentifiers,
     },
     AgentModeError {
         identifiers: AIIdentifiers,
@@ -2374,9 +2241,6 @@ pub enum TelemetryEvent {
     },
     MCPServerCollectionPaneOpened {
         entrypoint: MCPServerCollectionPaneEntrypoint,
-    },
-    MCPServerAdded {
-        metadata: MCPServerTelemetryMetadata,
     },
     MCPTemplateCreated {
         source: MCPTemplateCreationSource,
@@ -2427,16 +2291,6 @@ pub enum TelemetryEvent {
         action: String,
         /// Whether or not Universal Developer Input mode is enabled
         is_udi_enabled: bool,
-    },
-    /// User used voice input functionality
-    VoiceInputUsed {
-        action: String, // "start", "stop", "cancel"
-        /// Duration of voice session in milliseconds (for stop action)
-        session_duration_ms: Option<u64>,
-        /// Whether or not Universal Developer Input mode is enabled
-        is_udi_enabled: bool,
-        /// Current input mode when voice was used
-        current_input_mode: InputType,
     },
     /// User interacted with @-menu for context attachment
     AtMenuInteracted {
@@ -2541,39 +2395,9 @@ pub enum TelemetryEvent {
     /// creating/opening a project/repository.
     GetStartedSkipToTerminal,
 
-    /// User selected an item from the "Recent" list on the new tab zero state
-    RecentMenuItemSelected {
-        // The kind of recent menu item selected
-        kind: &'static str,
-    },
-
     /// User selected a folder to open as a repo from the "Open repository" button
     OpenRepoFolderSubmitted {
         is_ftux: bool,
-    },
-
-    /// User closed the "Out of credits" banner (dismissed or purchased credits)
-    OutOfCreditsBannerClosed {
-        action: OutOfCreditsBannerAction,
-        selected_credits: Option<i32>,
-        auto_reload_checkbox_enabled: bool,
-        banner_toggle_flag_enabled: bool,
-        post_purchase_modal_flag_enabled: bool,
-    },
-
-    /// User closed the auto-reload modal (either dismissed or enabled auto-reload)
-    AutoReloadModalClosed {
-        action: AutoReloadModalAction,
-        selected_credits: Option<i32>,
-        banner_toggle_flag_enabled: bool,
-        post_purchase_modal_flag_enabled: bool,
-    },
-
-    /// User toggled auto-reload in Billing & Usage settings
-    AutoReloadToggledFromBillingSettings {
-        enabled: bool,
-        banner_toggle_flag_enabled: bool,
-        post_purchase_modal_flag_enabled: bool,
     },
 
     /// Emitted when the control state of the CLI subagent changes.
@@ -2605,19 +2429,6 @@ pub enum TelemetryEvent {
         block_id: BlockId,
         user_took_over: bool,
     },
-    /// Emitted when the user toggles the Agent Management View.
-    AgentManagementViewToggled {
-        is_open: bool,
-    },
-    /// Emitted when the user opens a session from the Agent Management View.
-    AgentManagementViewOpenedSession,
-    /// Emitted when the user copies a session link from the Agent Management View.
-    AgentManagementViewCopiedSessionLink,
-    /// Detected that Warp is running in an isolated sandbox.
-    DetectedIsolationPlatform {
-        platform: warp_isolation_platform::IsolationPlatformType,
-    },
-
     AgentTipShown {
         tip: String,
     },
@@ -2629,11 +2440,6 @@ pub enum TelemetryEvent {
     AgentExitedShellProcess {
         command: String,
         server_output_id: Option<ServerOutputId>,
-    },
-    /// Emitted when the user uses voice input from the CLI agent footer.
-    CLIAgentToolbarVoiceInputUsed {
-        /// The CLI agent being used.
-        cli_agent: CLIAgentType,
     },
     /// Emitted when the user attaches an image from the CLI agent footer.
     CLIAgentToolbarImageAttached {
@@ -2874,9 +2680,6 @@ impl TelemetryEvent {
             } => Some(json!({"num_blocks_reverted": num_blocks_reverted})),
             TelemetryEvent::BootstrappingSlow(info) => Some(json!(info)),
             TelemetryEvent::BootstrappingSlowContents(info) => Some(json!(info)),
-            TelemetryEvent::ToggleSettingsSync {
-                is_settings_sync_enabled,
-            } => Some(json!({ "is_settings_sync_enabled": is_settings_sync_enabled })),
             TelemetryEvent::SessionAbandonedBeforeBootstrap {
                 pending_shell,
                 has_pending_ssh_session,
@@ -2951,9 +2754,6 @@ impl TelemetryEvent {
             TelemetryEvent::ReinputCommands(cardinality) => {
                 Some(json!({ "cardinality": cardinality }))
             }
-            TelemetryEvent::ContextMenuToggleGitPromptDirtyIndicator { enabled } => {
-                Some(json!({ "enabled": enabled }))
-            }
             TelemetryEvent::BlockSelection(details) => Some(json!(details)),
             TelemetryEvent::OpenSuggestionsMenu(mode) => Some(json!(mode)),
             TelemetryEvent::ConfirmSuggestion { mode, match_type } => {
@@ -2999,12 +2799,6 @@ impl TelemetryEvent {
             }
             TelemetryEvent::WorkflowExecuted(metadata) => Some(json!(metadata)),
             TelemetryEvent::WorkflowSelected(metadata) => Some(json!(metadata)),
-            TelemetryEvent::CompleteWelcomeTipFeature {
-                total_completed_count,
-                tip_name,
-            } => Some(
-                json!({ "total_completed_count": total_completed_count, "tip_name": tip_name }),
-            ),
             TelemetryEvent::NotificationsDiscoveryBannerAction(action) => {
                 Some(json!({ "action": action }))
             }
@@ -3046,11 +2840,6 @@ impl TelemetryEvent {
                 filter: mode,
                 buffer_length,
             } => Some(json!({ "mode": mode, "buffer_length": buffer_length })),
-            TelemetryEvent::AuthCommonQuestionClicked { question } => Some(json!(question)),
-            TelemetryEvent::AuthToggleFAQ { open } => {
-                let payload = if *open { "open" } else { "close" };
-                Some(json!(payload))
-            }
             TelemetryEvent::TabRenamed(rename_event) => Some(json!(rename_event)),
             TelemetryEvent::MoveActiveTab { direction } => Some(json!({ "direction": direction })),
             TelemetryEvent::MoveTab { direction } => Some(json!({ "direction": direction })),
@@ -3064,7 +2853,6 @@ impl TelemetryEvent {
             TelemetryEvent::OpenLink { link, open_with } => {
                 Some(json!({"link_type": link, "open_with": open_with}))
             }
-            TelemetryEvent::OpenChangelogLink { url } => Some(json!({ "url": url })),
             TelemetryEvent::CommandXRayTriggered { trigger } => Some(json!({ "trigger": trigger })),
             TelemetryEvent::SaveLaunchConfig { state } => Some(json!({ "state": state })),
             TelemetryEvent::SaveAsWorkflowModal { source } => Some(json!({ "source": source })),
@@ -3149,12 +2937,6 @@ impl TelemetryEvent {
             TelemetryEvent::MCPServerCollectionPaneOpened { entrypoint } => {
                 Some(json!({ "entrypoint": entrypoint }))
             }
-            TelemetryEvent::MCPServerAdded { metadata } => Some(json!({
-                "object_id": metadata.object_id,
-                "name": metadata.name,
-                "transport_type": metadata.transport_type,
-                "mcp_server": metadata.mcp_server,
-            })),
             TelemetryEvent::MCPTemplateCreated {
                 source,
                 variables,
@@ -3396,10 +3178,6 @@ impl TelemetryEvent {
             TelemetryEvent::PaneDropped { drop_location } => {
                 Some(json!({ "location": drop_location }))
             }
-            TelemetryEvent::InviteTeammates {
-                num_teammates,
-                team_uid,
-            } => Some(json!({"num_teammates": num_teammates, "team_uid": team_uid})),
             TelemetryEvent::AgentModeCreatedAIBlock {
                 client_exchange_id,
                 server_output_id,
@@ -3469,7 +3247,6 @@ impl TelemetryEvent {
             } => Some(
                 json!({"is_git_operations_autogen_enabled": is_git_operations_autogen_enabled}),
             ),
-            TelemetryEvent::ToggleVoiceInputSetting => Some(json!({})),
             TelemetryEvent::AgentModePotentialAutoDetectionFalsePositive(
                 AgentModeAutoDetectionFalsePositivePayload::InternalDogfoodUsers { input_text },
             ) => Some(json!({"input_text": input_text})),
@@ -3677,9 +3454,6 @@ impl TelemetryEvent {
             TelemetryEvent::SettingsImportConfigFocused(terminal_type_and_profile) => {
                 Some(json!({"terminal_and_type_profile": terminal_type_and_profile}))
             }
-            TelemetryEvent::InitiateAnonymousUserSignup { entrypoint } => {
-                Some(json!({"entrypoint": entrypoint}))
-            }
             TelemetryEvent::ToggleWorkspaceDecorationVisibility {
                 previous_value,
                 new_value,
@@ -3768,9 +3542,6 @@ impl TelemetryEvent {
                 "env_vars_id": env_vars_id,
                 "env_vars_space": env_vars_space,
             })),
-            TelemetryEvent::AutoupdateRelaunchAttempt { new_version } => Some(json!({
-                "new_version": new_version,
-            })),
             TelemetryEvent::ToggledAgentModeAutoexecuteReadonlyCommandsSetting { src, enabled } => {
                 Some(json!({
                     "source": src,
@@ -3837,11 +3608,6 @@ impl TelemetryEvent {
             })),
             TelemetryEvent::ImageReceived { image_protocol } => Some(json!({
                 "image_protocol": image_protocol,
-            })),
-            TelemetryEvent::FileExceededContextLimit { identifiers } => Some(json!({
-                "server_output_id": identifiers.server_output_id,
-                "exchange_id": identifiers.client_exchange_id,
-                "conversation_id": identifiers.server_conversation_id,
             })),
             TelemetryEvent::AgentModeError {
                 identifiers,
@@ -3937,17 +3703,6 @@ impl TelemetryEvent {
                 "action": action,
                 "is_udi_enabled": is_udi_enabled,
             })),
-            TelemetryEvent::VoiceInputUsed {
-                action,
-                session_duration_ms,
-                is_udi_enabled,
-                current_input_mode,
-            } => Some(json!({
-                "action": action,
-                "session_duration_ms": session_duration_ms,
-                "is_udi_enabled": is_udi_enabled,
-                "current_input_mode": current_input_mode,
-            })),
             TelemetryEvent::AtMenuInteracted {
                 action,
                 query_length,
@@ -3971,28 +3726,21 @@ impl TelemetryEvent {
             })),
             TelemetryEvent::BackgroundBlockStarted
             | TelemetryEvent::SessionCreation
-            | TelemetryEvent::Login
             | TelemetryEvent::ContextMenuInsertSelectedText
             | TelemetryEvent::ContextMenuCopySelectedText
             | TelemetryEvent::JumpToPreviousCommand
             | TelemetryEvent::TabSingleResultAutocompletion
-            | TelemetryEvent::CopyInviteLink
             | TelemetryEvent::OpenThemeChooser
             | TelemetryEvent::OpenThemeCreatorModal
             | TelemetryEvent::CreateCustomTheme
             | TelemetryEvent::DeleteCustomTheme
             | TelemetryEvent::SplitPane
-            | TelemetryEvent::UnableToAutoUpdateToNewVersion
-            | TelemetryEvent::SkipOnboardingSurvey
             | TelemetryEvent::LoggedOutStartup
             | TelemetryEvent::OpenWorkflowSearch
             | TelemetryEvent::OpenQuakeModeWindow
-            | TelemetryEvent::OpenWelcomeTips
-            | TelemetryEvent::DismissWelcomeTips
             | TelemetryEvent::ShowNotificationsDiscoveryBanner
             | TelemetryEvent::ShowNotificationsErrorBanner
             | TelemetryEvent::NotificationClicked
-            | TelemetryEvent::SignUpButtonClicked
             | TelemetryEvent::OpenNewSessionFromFilePath
             | TelemetryEvent::OpenTeamFromURI
             | TelemetryEvent::SelectNavigationPaletteItem
@@ -4002,17 +3750,7 @@ impl TelemetryEvent {
             | TelemetryEvent::JumpToBookmark
             | TelemetryEvent::JumpToBottomofBlockButtonClicked
             | TelemetryEvent::ShowInFileExplorer
-            | TelemetryEvent::OpenLaunchConfigSaveModal
             | TelemetryEvent::OpenLaunchConfigFile
-            | TelemetryEvent::TeamCreated
-            | TelemetryEvent::TeamJoined
-            | TelemetryEvent::TeamLeft
-            | TelemetryEvent::TeamLinkCopied
-            | TelemetryEvent::RemovedUserFromTeam
-            | TelemetryEvent::DeletedWorkflow
-            | TelemetryEvent::DeletedNotebook
-            | TelemetryEvent::ToggleApprovalsModal
-            | TelemetryEvent::SendEmailInvites
             | TelemetryEvent::ResourceCenterOpened
             | TelemetryEvent::ResourceCenterTipsCompleted
             | TelemetryEvent::ResourceCenterTipsSkipped
@@ -4054,10 +3792,6 @@ impl TelemetryEvent {
             | TelemetryEvent::DismissVimKeybindingsBanner
             | TelemetryEvent::InitiateReauth
             | TelemetryEvent::NeedsReauth
-            | TelemetryEvent::AnonymousUserExpirationLockout
-            | TelemetryEvent::AnonymousUserLinkedFromBrowser
-            | TelemetryEvent::AnonymousUserHitCloudObjectLimit
-            | TelemetryEvent::CustomSecretRegexAdded
             | TelemetryEvent::CopySecret
             | TelemetryEvent::AutoGenerateMetadataSuccess
             | TelemetryEvent::CommandFileRun
@@ -4078,7 +3812,6 @@ impl TelemetryEvent {
             | TelemetryEvent::SettingsImportInitiated
             | TelemetryEvent::GrepToolSucceeded
             | TelemetryEvent::FileGlobToolSucceeded
-            | TelemetryEvent::UserMenuUpgradeClicked
             | TelemetryEvent::AIExecutionProfileCreated
             | TelemetryEvent::AIExecutionProfileDeleted
             | TelemetryEvent::FileTreeItemCreated
@@ -4153,12 +3886,6 @@ impl TelemetryEvent {
                 "installed_binary": installed_binary,
                 "remote_os": remote_os,
                 "remote_arch": remote_arch,
-            })),
-            TelemetryEvent::ConversationListItemOpened { is_ambient_agent } => Some(json!({
-                "is_ambient_agent": is_ambient_agent,
-            })),
-            TelemetryEvent::ConversationListLinkCopied { is_ambient_agent } => Some(json!({
-                "is_ambient_agent": is_ambient_agent,
             })),
             TelemetryEvent::AIExecutionProfileSettingUpdated {
                 setting_type,
@@ -4235,11 +3962,7 @@ impl TelemetryEvent {
                 "action": action,
             })),
             #[cfg(windows)]
-            TelemetryEvent::WSLRegistryError
-            | TelemetryEvent::AutoupdateUnableToCloseApplications
-            | TelemetryEvent::AutoupdateFileInUse
-            | TelemetryEvent::AutoupdateMutexTimeout
-            | TelemetryEvent::AutoupdateForcekillFailed => None,
+            TelemetryEvent::WSLRegistryError => None,
             TelemetryEvent::InputBufferSubmitted {
                 input_type,
                 is_locked,
@@ -4264,44 +3987,8 @@ impl TelemetryEvent {
             TelemetryEvent::CloneRepoPromptSubmitted { is_ftux } => Some(json!({
                 "is_ftux": is_ftux,
             })),
-            TelemetryEvent::RecentMenuItemSelected { kind } => Some(json!({
-                "kind": kind,
-            })),
             TelemetryEvent::OpenRepoFolderSubmitted { is_ftux } => Some(json!({
                 "is_ftux": is_ftux,
-            })),
-            TelemetryEvent::OutOfCreditsBannerClosed {
-                action,
-                selected_credits,
-                auto_reload_checkbox_enabled,
-                banner_toggle_flag_enabled,
-                post_purchase_modal_flag_enabled,
-            } => Some(json!({
-                "action": action,
-                "selected_credits": selected_credits,
-                "auto_reload_checkbox_enabled": auto_reload_checkbox_enabled,
-                "banner_toggle_flag_enabled": banner_toggle_flag_enabled,
-                "post_purchase_modal_flag_enabled": post_purchase_modal_flag_enabled,
-            })),
-            TelemetryEvent::AutoReloadModalClosed {
-                action,
-                selected_credits,
-                banner_toggle_flag_enabled,
-                post_purchase_modal_flag_enabled,
-            } => Some(json!({
-                "action": action,
-                "selected_credits": selected_credits,
-                "banner_toggle_flag_enabled": banner_toggle_flag_enabled,
-                "post_purchase_modal_flag_enabled": post_purchase_modal_flag_enabled,
-            })),
-            TelemetryEvent::AutoReloadToggledFromBillingSettings {
-                enabled,
-                banner_toggle_flag_enabled,
-                post_purchase_modal_flag_enabled,
-            } => Some(json!({
-                "enabled": enabled,
-                "banner_toggle_flag_enabled": banner_toggle_flag_enabled,
-                "post_purchase_modal_flag_enabled": post_purchase_modal_flag_enabled,
             })),
             TelemetryEvent::WarpDriveOpened {
                 source,
@@ -4363,23 +4050,12 @@ impl TelemetryEvent {
                 "block_id": block_id,
                 "user_took_over": user_took_over,
             })),
-            TelemetryEvent::AgentManagementViewToggled { is_open } => Some(json!({
-                "is_open": is_open,
-            })),
-            TelemetryEvent::AgentManagementViewOpenedSession => None,
-            TelemetryEvent::AgentManagementViewCopiedSessionLink => None,
-            TelemetryEvent::DetectedIsolationPlatform { platform } => Some(json!({
-                "platform": platform,
-            })),
             TelemetryEvent::AgentExitedShellProcess {
                 command,
                 server_output_id,
             } => Some(json!({
                 "command": command,
                 "server_output_id": server_output_id,
-            })),
-            TelemetryEvent::CLIAgentToolbarVoiceInputUsed { cli_agent } => Some(json!({
-                "agent_name": cli_agent,
             })),
             TelemetryEvent::CLIAgentToolbarImageAttached { cli_agent } => Some(json!({
                 "agent_name": cli_agent,
@@ -4483,12 +4159,6 @@ impl TelemetryEvent {
                 "conversation_id": conversation_id,
                 "ambient_agent_task_id": ambient_agent_task_id.map(|id| id.to_string()),
             })),
-            TelemetryEvent::LoginButtonClicked { source }
-            | TelemetryEvent::LoginLaterButtonClicked { source }
-            | TelemetryEvent::LoginLaterConfirmationButtonClicked { source }
-            | TelemetryEvent::OpenAuthPrivacySettings { source } => Some(json!({
-                "source": source,
-            })),
         }
     }
 
@@ -4533,7 +4203,6 @@ impl TelemetryEvent {
             | TelemetryEvent::BackgroundBlockStarted
             | TelemetryEvent::BaselineCommandLatency(_)
             | TelemetryEvent::SessionCreation
-            | TelemetryEvent::Login
             | TelemetryEvent::AgentModeContinueConversationButtonClicked { .. }
             | TelemetryEvent::AgentModeRewindDialogOpened { .. }
             | TelemetryEvent::AgentModeRewindExecuted { .. }
@@ -4544,7 +4213,6 @@ impl TelemetryEvent {
             | TelemetryEvent::ContextMenuOpenShareModal(_)
             | TelemetryEvent::ContextMenuFindWithinBlocks(_)
             | TelemetryEvent::ContextMenuCopyPrompt { .. }
-            | TelemetryEvent::ContextMenuToggleGitPromptDirtyIndicator { .. }
             | TelemetryEvent::ContextMenuInsertSelectedText
             | TelemetryEvent::ContextMenuCopySelectedText
             | TelemetryEvent::OpenPromptEditor { .. }
@@ -4559,7 +4227,6 @@ impl TelemetryEvent {
             | TelemetryEvent::BootstrappingSucceeded(_)
             | TelemetryEvent::TabSingleResultAutocompletion
             | TelemetryEvent::EditorUnhandledModifierKey(_)
-            | TelemetryEvent::CopyInviteLink
             | TelemetryEvent::OpenThemeChooser
             | TelemetryEvent::ThemeSelection { .. }
             | TelemetryEvent::AppIconSelection { .. }
@@ -4568,9 +4235,6 @@ impl TelemetryEvent {
             | TelemetryEvent::CreateCustomTheme
             | TelemetryEvent::DeleteCustomTheme
             | TelemetryEvent::SplitPane
-            | TelemetryEvent::UnableToAutoUpdateToNewVersion
-            | TelemetryEvent::AutoupdateRelaunchAttempt { .. }
-            | TelemetryEvent::SkipOnboardingSurvey
             | TelemetryEvent::ToggleRestoreSession(_)
             | TelemetryEvent::DatabaseStartUpError(_)
             | TelemetryEvent::DatabaseReadError(_)
@@ -4588,9 +4252,6 @@ impl TelemetryEvent {
             | TelemetryEvent::WorkflowSelected(_)
             | TelemetryEvent::OpenWorkflowSearch
             | TelemetryEvent::OpenQuakeModeWindow
-            | TelemetryEvent::OpenWelcomeTips
-            | TelemetryEvent::CompleteWelcomeTipFeature { .. }
-            | TelemetryEvent::DismissWelcomeTips
             | TelemetryEvent::ShowNotificationsDiscoveryBanner
             | TelemetryEvent::NotificationsDiscoveryBannerAction(_)
             | TelemetryEvent::ShowNotificationsErrorBanner
@@ -4601,10 +4262,6 @@ impl TelemetryEvent {
             | TelemetryEvent::NotificationFailedToSend { .. }
             | TelemetryEvent::NotificationClicked
             | TelemetryEvent::ToggleFindOption { .. }
-            | TelemetryEvent::SignUpButtonClicked
-            | TelemetryEvent::LoginButtonClicked { .. }
-            | TelemetryEvent::LoginLaterButtonClicked { .. }
-            | TelemetryEvent::LoginLaterConfirmationButtonClicked { .. }
             | TelemetryEvent::OpenNewSessionFromFilePath
             | TelemetryEvent::OpenTeamFromURI
             | TelemetryEvent::SelectNavigationPaletteItem
@@ -4612,9 +4269,6 @@ impl TelemetryEvent {
             | TelemetryEvent::PaletteSearchOpened { .. }
             | TelemetryEvent::PaletteSearchResultAccepted { .. }
             | TelemetryEvent::PaletteSearchExited { .. }
-            | TelemetryEvent::AuthCommonQuestionClicked { .. }
-            | TelemetryEvent::AuthToggleFAQ { .. }
-            | TelemetryEvent::OpenAuthPrivacySettings { .. }
             | TelemetryEvent::TabRenamed(_)
             | TelemetryEvent::MoveActiveTab { .. }
             | TelemetryEvent::MoveTab { .. }
@@ -4629,23 +4283,11 @@ impl TelemetryEvent {
             | TelemetryEvent::ToggleJumpToBottomofBlockButton { .. }
             | TelemetryEvent::ToggleShowBlockDividers { .. }
             | TelemetryEvent::OpenLink { .. }
-            | TelemetryEvent::OpenChangelogLink { .. }
             | TelemetryEvent::ShowInFileExplorer
             | TelemetryEvent::CommandXRayTriggered { .. }
-            | TelemetryEvent::OpenLaunchConfigSaveModal
             | TelemetryEvent::SaveLaunchConfig { .. }
             | TelemetryEvent::OpenLaunchConfigFile
             | TelemetryEvent::OpenLaunchConfig { .. }
-            | TelemetryEvent::TeamCreated
-            | TelemetryEvent::TeamJoined
-            | TelemetryEvent::TeamLeft
-            | TelemetryEvent::ToggleSettingsSync { .. }
-            | TelemetryEvent::TeamLinkCopied
-            | TelemetryEvent::RemovedUserFromTeam
-            | TelemetryEvent::DeletedWorkflow
-            | TelemetryEvent::DeletedNotebook
-            | TelemetryEvent::ToggleApprovalsModal
-            | TelemetryEvent::SendEmailInvites
             | TelemetryEvent::CommandCorrection { .. }
             | TelemetryEvent::SetLineHeight { .. }
             | TelemetryEvent::ResourceCenterOpened
@@ -4731,15 +4373,10 @@ impl TelemetryEvent {
             | TelemetryEvent::EnableVimKeybindingsFromBanner
             | TelemetryEvent::DismissVimKeybindingsBanner
             | TelemetryEvent::InitiateReauth
-            | TelemetryEvent::InitiateAnonymousUserSignup { .. }
-            | TelemetryEvent::AnonymousUserExpirationLockout
-            | TelemetryEvent::AnonymousUserLinkedFromBrowser
-            | TelemetryEvent::AnonymousUserHitCloudObjectLimit
             | TelemetryEvent::NeedsReauth
             | TelemetryEvent::WarpDriveOpened { .. }
             | TelemetryEvent::ToggleWarpAI { .. }
             | TelemetryEvent::ToggleSecretRedaction { .. }
-            | TelemetryEvent::CustomSecretRegexAdded
             | TelemetryEvent::ToggleObfuscateSecret { .. }
             | TelemetryEvent::CopySecret
             | TelemetryEvent::AutoGenerateMetadataSuccess
@@ -4764,7 +4401,6 @@ impl TelemetryEvent {
             | TelemetryEvent::WebCloudObjectOpenedOnDesktop { .. }
             | TelemetryEvent::UnsupportedShell { .. }
             | TelemetryEvent::LogOut
-            | TelemetryEvent::InviteTeammates { .. }
             | TelemetryEvent::CopyObjectToClipboard(_)
             | TelemetryEvent::OpenAndWarpifyDockerSubshell { .. }
             | TelemetryEvent::UpdateBlockFilterQuery
@@ -4800,7 +4436,6 @@ impl TelemetryEvent {
             | TelemetryEvent::ToggleActiveAI { .. }
             | TelemetryEvent::TogglePromptSuggestionsSetting { .. }
             | TelemetryEvent::ToggleCodeSuggestionsSetting { .. }
-            | TelemetryEvent::ToggleVoiceInputSetting
             | TelemetryEvent::TierLimitHit(_)
             | TelemetryEvent::SharedObjectLimitHitBannerViewPlansButtonClicked
             | TelemetryEvent::ResourceUsageStats { .. }
@@ -4832,7 +4467,6 @@ impl TelemetryEvent {
             | TelemetryEvent::AgenticOnboardingBlockSelected { .. }
             | TelemetryEvent::KnowledgePaneOpened { .. }
             | TelemetryEvent::MCPServerCollectionPaneOpened { .. }
-            | TelemetryEvent::MCPServerAdded { .. }
             | TelemetryEvent::MCPTemplateCreated { .. }
             | TelemetryEvent::MCPTemplateInstalled { .. }
             | TelemetryEvent::MCPTemplateShared
@@ -4852,7 +4486,6 @@ impl TelemetryEvent {
             | TelemetryEvent::AISuggestedRuleContentChanged { .. }
             | TelemetryEvent::AttachedImagesToAgentModeQuery { .. }
             | TelemetryEvent::ImageReceived { .. }
-            | TelemetryEvent::FileExceededContextLimit { .. }
             | TelemetryEvent::AgentModeError { .. }
             | TelemetryEvent::AgentModeRequestRetrySucceeded { .. }
             | TelemetryEvent::ToggleNaturalLanguageAutosuggestionsSetting { .. }
@@ -4868,9 +4501,7 @@ impl TelemetryEvent {
             | TelemetryEvent::SearchCodebaseRepoUnavailable { .. }
             | TelemetryEvent::InputUXModeChanged { .. }
             | TelemetryEvent::ContextChipInteracted { .. }
-            | TelemetryEvent::VoiceInputUsed { .. }
             | TelemetryEvent::AtMenuInteracted { .. }
-            | TelemetryEvent::UserMenuUpgradeClicked
             | TelemetryEvent::ActiveIndexedReposChanged { .. }
             | TelemetryEvent::TabCloseButtonPositionUpdated { .. }
             | TelemetryEvent::ExpandedCodeSuggestions { .. }
@@ -4895,33 +4526,22 @@ impl TelemetryEvent {
             | TelemetryEvent::CodeSelectionAddedAsContext { .. }
             | TelemetryEvent::FileTreeItemCreated
             | TelemetryEvent::ConversationListViewOpened
-            | TelemetryEvent::ConversationListItemOpened { .. }
             | TelemetryEvent::ConversationListItemDeleted
-            | TelemetryEvent::ConversationListLinkCopied { .. }
             | TelemetryEvent::AgentViewEntered { .. }
             | TelemetryEvent::AgentViewExited { .. }
             | TelemetryEvent::InlineConversationMenuOpened { .. }
             | TelemetryEvent::InlineConversationMenuItemSelected { .. }
             | TelemetryEvent::AgentShortcutsViewToggled { .. }
             | TelemetryEvent::InputBufferSubmitted { .. }
-            | TelemetryEvent::RecentMenuItemSelected { .. }
             | TelemetryEvent::OpenRepoFolderSubmitted { .. }
-            | TelemetryEvent::OutOfCreditsBannerClosed { .. }
-            | TelemetryEvent::AutoReloadModalClosed { .. }
-            | TelemetryEvent::AutoReloadToggledFromBillingSettings { .. }
             | TelemetryEvent::CLISubagentControlStateChanged { .. }
             | TelemetryEvent::CLISubagentResponsesToggled { .. }
             | TelemetryEvent::CLISubagentInputDismissed { .. }
             | TelemetryEvent::CLISubagentActionExecuted { .. }
             | TelemetryEvent::CLISubagentActionRejected { .. }
-            | TelemetryEvent::AgentManagementViewToggled { .. }
-            | TelemetryEvent::AgentManagementViewOpenedSession
-            | TelemetryEvent::AgentManagementViewCopiedSessionLink
-            | TelemetryEvent::DetectedIsolationPlatform { .. }
             | TelemetryEvent::AgentTipShown { .. }
             | TelemetryEvent::AgentTipClicked { .. }
             | TelemetryEvent::ToggleShowAgentTips { .. }
-            | TelemetryEvent::CLIAgentToolbarVoiceInputUsed { .. }
             | TelemetryEvent::CLIAgentToolbarImageAttached { .. }
             | TelemetryEvent::CLIAgentToolbarShown { .. }
             | TelemetryEvent::CLIAgentPluginChipClicked { .. }
@@ -4952,11 +4572,7 @@ impl TelemetryEvent {
             | TelemetryEvent::CodePanelsFileOpened { .. }
             | TelemetryEvent::PreviewPanePromoted => false,
             #[cfg(windows)]
-            TelemetryEvent::WSLRegistryError
-            | TelemetryEvent::AutoupdateUnableToCloseApplications
-            | TelemetryEvent::AutoupdateFileInUse
-            | TelemetryEvent::AutoupdateMutexTimeout
-            | TelemetryEvent::AutoupdateForcekillFailed => false,
+            TelemetryEvent::WSLRegistryError => false,
         }
     }
 
@@ -5016,10 +4632,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::FileTreeItemAttachedAsContext => EnablementState::Flag(FeatureFlag::FileTree),
             Self::CodeSelectionAddedAsContext => EnablementState::Flag(FeatureFlag::HoaCodeReview),
             Self::FileTreeItemCreated => EnablementState::Flag(FeatureFlag::FileTree),
-            Self::ConversationListViewOpened
-            | Self::ConversationListItemOpened
-            | Self::ConversationListItemDeleted
-            | Self::ConversationListLinkCopied => {
+            Self::ConversationListViewOpened | Self::ConversationListItemDeleted => {
                 EnablementState::Flag(FeatureFlag::AgentViewConversationListView)
             }
             Self::AgentViewEntered
@@ -5036,7 +4649,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::PtyThroughput => EnablementState::Flag(FeatureFlag::RecordPtyThroughput),
             Self::AgentModeCreatedAIBlock => EnablementState::Flag(FeatureFlag::AgentMode),
             Self::MCPServerCollectionPaneOpened { .. }
-            | Self::MCPServerAdded { .. }
             | Self::MCPServerSpawned { .. }
             | Self::MCPToolCallAccepted { .. } => EnablementState::Flag(FeatureFlag::McpServer),
             Self::MCPTemplateCreated { .. }
@@ -5057,12 +4669,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 EnablementState::Flag(FeatureFlag::SuggestedRules)
             }
             Self::ToggleFocusPaneOnHover { .. } => EnablementState::Always,
-            Self::InitiateAnonymousUserSignup { .. }
-            | Self::LoginLaterButtonClicked
-            | Self::LoginLaterConfirmationButtonClicked
-            | Self::AnonymousUserExpirationLockout
-            | Self::AnonymousUserLinkedFromBrowser
-            | Self::AnonymousUserHitCloudObjectLimit => EnablementState::Always,
 
             Self::AgentModeChangedInputType => EnablementState::Always,
             Self::StartedSharingCurrentSession
@@ -5074,7 +4680,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::OpenNotebook | Self::EditNotebook | Self::NotebookAction => {
                 EnablementState::Always
             }
-            Self::ToggleSettingsSync { .. } => EnablementState::Always,
             Self::AgentTipShown | Self::AgentTipClicked | Self::ToggleShowAgentTips => {
                 EnablementState::Flag(FeatureFlag::AgentTips)
             }
@@ -5083,7 +4688,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::BackgroundBlockStarted => EnablementState::Always,
             Self::BaselineCommandLatency => EnablementState::Always,
             Self::SessionCreation => EnablementState::Always,
-            Self::Login => EnablementState::Always,
             Self::OpenSuggestionsMenu => EnablementState::Always,
             Self::ConfirmSuggestion => EnablementState::Always,
             Self::OpenContextMenu => EnablementState::Always,
@@ -5091,7 +4695,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ContextMenuOpenShareModal => EnablementState::Always,
             Self::ContextMenuFindWithinBlocks => EnablementState::Always,
             Self::ContextMenuCopyPrompt => EnablementState::Always,
-            Self::ContextMenuToggleGitPromptDirtyIndicator => EnablementState::Always,
             Self::ContextMenuInsertSelectedText => EnablementState::Always,
             Self::ContextMenuCopySelectedText => EnablementState::Always,
             Self::OpenPromptEditor => EnablementState::Always,
@@ -5107,7 +4710,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::BootstrappingSucceeded => EnablementState::Always,
             Self::TabSingleResultAutocompletion => EnablementState::Always,
             Self::EditorUnhandledModifierKey => EnablementState::Always,
-            Self::CopyInviteLink => EnablementState::Always,
             Self::OpenThemeChooser => EnablementState::Always,
             Self::ThemeSelection => EnablementState::Always,
             Self::AppIconSelection => EnablementState::Always,
@@ -5116,10 +4718,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::CreateCustomTheme => EnablementState::Always,
             Self::DeleteCustomTheme => EnablementState::Always,
             Self::SplitPane => EnablementState::Always,
-            Self::UnableToAutoUpdateToNewVersion | Self::AutoupdateRelaunchAttempt => {
-                EnablementState::Always
-            }
-            Self::SkipOnboardingSurvey => EnablementState::Always,
             Self::ToggleRestoreSession => EnablementState::Always,
             Self::DatabaseStartUpError => EnablementState::Always,
             Self::DatabaseReadError => EnablementState::Always,
@@ -5137,9 +4735,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::WorkflowSelected => EnablementState::Always,
             Self::OpenWorkflowSearch => EnablementState::Always,
             Self::OpenQuakeModeWindow => EnablementState::Always,
-            Self::OpenWelcomeTips => EnablementState::Always,
-            Self::CompleteWelcomeTipFeature => EnablementState::Always,
-            Self::DismissWelcomeTips => EnablementState::Always,
             Self::ShowNotificationsDiscoveryBanner => EnablementState::Always,
             Self::NotificationsDiscoveryBannerAction => EnablementState::Always,
             Self::ShowNotificationsErrorBanner => EnablementState::Always,
@@ -5150,8 +4745,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::NotificationFailedToSend => EnablementState::Always,
             Self::NotificationClicked => EnablementState::Always,
             Self::ToggleFindOption => EnablementState::Always,
-            Self::SignUpButtonClicked => EnablementState::Always,
-            Self::LoginButtonClicked => EnablementState::Always,
             Self::OpenNewSessionFromFilePath => EnablementState::Always,
             Self::OpenTeamFromURI => EnablementState::Always,
             Self::SelectCommandPaletteOption => EnablementState::Always,
@@ -5159,9 +4752,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::PaletteSearchResultAccepted => EnablementState::Always,
             Self::PaletteSearchExited => EnablementState::Always,
             Self::SelectNavigationPaletteItem => EnablementState::Always,
-            Self::AuthCommonQuestionClicked => EnablementState::Always,
-            Self::AuthToggleFAQ => EnablementState::Always,
-            Self::OpenAuthPrivacySettings => EnablementState::Always,
             Self::TabRenamed => EnablementState::Always,
             Self::MoveActiveTab => EnablementState::Always,
             Self::MoveTab => EnablementState::Always,
@@ -5175,22 +4765,11 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::JumpToBottomofBlockButtonClicked => EnablementState::Always,
             Self::ToggleJumpToBottomofBlockButton => EnablementState::Always,
             Self::OpenLink => EnablementState::Always,
-            Self::OpenChangelogLink => EnablementState::Always,
             Self::ShowInFileExplorer => EnablementState::Always,
             Self::CommandXRayTriggered => EnablementState::Always,
-            Self::OpenLaunchConfigSaveModal => EnablementState::Always,
             Self::SaveLaunchConfig => EnablementState::Always,
             Self::OpenLaunchConfigFile => EnablementState::Always,
             Self::OpenLaunchConfig => EnablementState::Always,
-            Self::TeamCreated => EnablementState::Always,
-            Self::TeamJoined => EnablementState::Always,
-            Self::TeamLeft => EnablementState::Always,
-            Self::TeamLinkCopied => EnablementState::Always,
-            Self::RemovedUserFromTeam => EnablementState::Always,
-            Self::DeletedWorkflow => EnablementState::Always,
-            Self::DeletedNotebook => EnablementState::Always,
-            Self::ToggleApprovalsModal => EnablementState::Always,
-            Self::SendEmailInvites => EnablementState::Always,
             Self::CommandCorrection => EnablementState::Always,
             Self::SetLineHeight => EnablementState::Always,
             Self::ResourceCenterOpened => EnablementState::Always,
@@ -5279,7 +4858,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::WarpDriveOpened => EnablementState::Always,
             Self::ToggleWarpAI => EnablementState::Always,
             Self::ToggleSecretRedaction => EnablementState::Always,
-            Self::CustomSecretRegexAdded => EnablementState::Always,
             Self::ToggleObfuscateSecret => EnablementState::Always,
             Self::CopySecret => EnablementState::Always,
             Self::AutoGenerateMetadataSuccess => EnablementState::Always,
@@ -5293,7 +4871,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::UnsupportedShell => EnablementState::Always,
             Self::LogOut => EnablementState::Always,
             Self::SettingsImportInitiated => EnablementState::Always,
-            Self::InviteTeammates => EnablementState::Always,
             Self::CopyObjectToClipboard => EnablementState::Always,
             Self::OpenAndWarpifyDockerSubshell => EnablementState::Always,
             Self::UpdateBlockFilterQuery => EnablementState::Always,
@@ -5366,7 +4943,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 EnablementState::Flag(FeatureFlag::GitOperationsInCodeReview)
             }
             Self::ZeroStatePromptSuggestionUsed => EnablementState::Always,
-            Self::ToggleVoiceInputSetting => EnablementState::Always,
             Self::AgentModeCodeSuggestionEditedByUser
             | Self::AgentModeCodeFilesNavigated
             | Self::AgentModeCodeDiffHunksNavigated => EnablementState::Always,
@@ -5396,11 +4972,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 EnablementState::Flag(FeatureFlag::ImageAsContext)
             }
             #[cfg(windows)]
-            Self::WSLRegistryError
-            | Self::AutoupdateUnableToCloseApplications
-            | Self::AutoupdateFileInUse
-            | Self::AutoupdateMutexTimeout
-            | Self::AutoupdateForcekillFailed => EnablementState::Always,
+            Self::WSLRegistryError => EnablementState::Always,
             Self::ToggleCodebaseContext => EnablementState::Always,
             Self::ToggleAutoIndexing => EnablementState::Always,
             Self::AgentModeRatedResponse => {
@@ -5408,7 +4980,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             }
             Self::ExecutedWarpDrivePrompt => EnablementState::Flag(FeatureFlag::AgentModeWorkflows),
             Self::ImageReceived => EnablementState::Always,
-            Self::FileExceededContextLimit => EnablementState::Always,
             Self::AgentModeError => EnablementState::Always,
             Self::AgentModeRequestRetrySucceeded => EnablementState::Always,
             Self::GrepToolSucceeded => EnablementState::Always,
@@ -5418,12 +4989,10 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ShellTerminatedPrematurely { .. } => EnablementState::Always,
             Self::InputUXModeChanged { .. } => EnablementState::Always,
             Self::ContextChipInteracted { .. } => EnablementState::Always,
-            Self::VoiceInputUsed { .. } => EnablementState::Always,
             Self::AtMenuInteracted { .. } => EnablementState::Always,
             Self::ActiveIndexedReposChanged { .. } => {
                 EnablementState::Flag(FeatureFlag::FullSourceCodeEmbedding)
             }
-            Self::UserMenuUpgradeClicked => EnablementState::Always,
             Self::TabCloseButtonPositionUpdated { .. } => EnablementState::Always,
             Self::ExpandedCodeSuggestions { .. } => EnablementState::Always,
             Self::AIExecutionProfileCreated
@@ -5452,24 +5021,13 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::AgentModeRewindExecuted { .. } => {
                 EnablementState::Flag(FeatureFlag::RevertToCheckpoints)
             }
-            Self::RecentMenuItemSelected => EnablementState::Always,
             Self::OpenRepoFolderSubmitted => EnablementState::Always,
-            Self::OutOfCreditsBannerClosed => EnablementState::Always,
-            Self::AutoReloadModalClosed => EnablementState::Always,
-            Self::AutoReloadToggledFromBillingSettings => EnablementState::Always,
             Self::CLISubagentControlStateChanged { .. }
             | Self::CLISubagentResponsesToggled { .. }
             | Self::CLISubagentInputDismissed { .. }
             | Self::CLISubagentActionExecuted { .. }
             | Self::CLISubagentActionRejected { .. } => EnablementState::Always,
-            Self::AgentManagementViewToggled { .. }
-            | Self::AgentManagementViewOpenedSession
-            | Self::AgentManagementViewCopiedSessionLink => {
-                EnablementState::Flag(FeatureFlag::AgentManagementView)
-            }
-            Self::DetectedIsolationPlatform { .. } => EnablementState::Always,
             Self::AgentExitedShellProcess { .. } => EnablementState::Always,
-            Self::CLIAgentToolbarVoiceInputUsed { .. } => EnablementState::Always,
             Self::CLIAgentToolbarImageAttached { .. } => EnablementState::Always,
             Self::CLIAgentToolbarShown { .. } => EnablementState::Always,
             Self::CLIAgentPluginChipClicked { .. }
@@ -5518,17 +5076,13 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::BlockCompletedOnDogfoodOnly => "Block Completed (dogfood only)",
             Self::BackgroundBlockStarted => "Background Block Started",
             Self::SessionCreation => "Tab Creation",
-            Self::Login => "Logged in to native app",
             Self::AgentModeContinueConversationButtonClicked => {
                 "Clicked Continue Conversation Button"
             }
             Self::AgentModeRewindDialogOpened { .. } => "Opened Rewind Confirmation Dialog",
             Self::AgentModeRewindExecuted { .. } => "Executed Conversation Rewind",
             Self::ReinputCommands => "Context Menu: Reinput Commands",
-            Self::ToggleSettingsSync => "Toggle Settings Sync",
             Self::ToggleFocusPaneOnHover => "Toggle Focus Pane On Hover",
-            Self::LoginLaterButtonClicked => "Login Later Button Clicked",
-            Self::LoginLaterConfirmationButtonClicked => "Login Later Confirmation Button Clicked",
             Self::JumpToPreviousCommand => "Jumped to Previous Command",
             Self::OpenContextMenu => "Open Context Menu",
             Self::ContextMenuFindWithinBlocks => "Context Menu: Find Within Blocks",
@@ -5545,9 +5099,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::CodeSelectionAddedAsContext => "CodeView.SelectionAddedAsContext",
             Self::FileTreeItemCreated => "FileTree.ItemCreated",
             Self::ConversationListViewOpened => "ConversationList.Opened",
-            Self::ConversationListItemOpened => "ConversationList.ItemOpened",
             Self::ConversationListItemDeleted => "ConversationList.ItemDeleted",
-            Self::ConversationListLinkCopied => "ConversationList.LinkCopied",
             Self::AgentViewEntered => "AgentView.Entered",
             Self::AgentViewExited => "AgentView.Exited",
             Self::InlineConversationMenuOpened => "AgentView.InlineConversationMenuOpened",
@@ -5559,11 +5111,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::CreateProjectPromptSubmittedContent => "Create Project Prompt Submitted Content",
             Self::CloneRepoPromptSubmitted => "Clone Repo Prompt Submitted",
             Self::GetStartedSkipToTerminal => "Get Started Skip to Terminal",
-            Self::InitiateAnonymousUserSignup => "Anonymous User Initiated Signup",
-            Self::AnonymousUserExpirationLockout => "Anonymous User Expiration Lockout",
-            Self::AnonymousUserLinkedFromBrowser => "Anonymous User Linked from Browser",
             Self::MCPServerCollectionPaneOpened { .. } => "MCP Server Collection Pane Opened",
-            Self::MCPServerAdded { .. } => "MCP Server Added",
             Self::MCPTemplateCreated { .. } => "MCP Template Created",
             Self::MCPTemplateInstalled { .. } => "MCP Template Installed",
             Self::MCPTemplateShared => "MCP Template Shared",
@@ -5579,7 +5127,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::AISuggestedRuleAdded { .. } => "AI Suggested Rule Added",
             Self::AISuggestedRuleEdited { .. } => "AI Suggested Rule Edited",
             Self::AISuggestedRuleContentChanged { .. } => "AI Suggested Rule Content Changed",
-            Self::AnonymousUserHitCloudObjectLimit => "Anonymous User Hit Cloud Object Limit",
             Self::BootstrappingSucceeded => "Bootstrapping Succeeded",
             Self::SessionAbandonedBeforeBootstrap => "Session Abandoned Before Bootstrap",
             Self::TabSingleResultAutocompletion => "Tab Single Result Autocompletion",
@@ -5588,11 +5135,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ContextMenuInsertSelectedText => "Context Menu Insert Selected Text into Input",
             Self::ContextMenuCopySelectedText => "Context Menu Copy Selected Text",
             Self::ContextMenuCopyPrompt => "Context Menu Copy Prompt",
-            Self::ContextMenuToggleGitPromptDirtyIndicator => {
-                "Context Menu Toggle Git Prompt Dirty Indicator"
-            }
             Self::EditorUnhandledModifierKey => "Unhandled Editor Modifier Key",
-            Self::CopyInviteLink => "Copy Invite Link",
             Self::OpenThemeChooser => "Open Theme Chooser",
             Self::ThemeSelection => "Select Theme",
             Self::AppIconSelection => "Select App Icon",
@@ -5600,10 +5143,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::OpenThemeCreatorModal => "Open Theme Creator Modal",
             Self::CreateCustomTheme => "Create Custom Theme",
             Self::DeleteCustomTheme => "Delete Custom Theme",
-            Self::UnableToAutoUpdateToNewVersion => "Unable to Update To New Version",
-            Self::AutoupdateRelaunchAttempt => "Attempting to Relaunch for Update",
             Self::SplitPane => "Split Pane",
-            Self::SkipOnboardingSurvey => "Skip Onboarding Survey",
             Self::ToggleRestoreSession => "Toggle Restore Session",
             Self::DatabaseStartUpError => "Database Startup Error",
             Self::DatabaseWriteError => "Database Write Error",
@@ -5624,9 +5164,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::WorkflowSelected => "Workflow Selected",
             Self::FeaturesPageAction => "Features Page Action",
             Self::OpenQuakeModeWindow => "Open Quake Mode Window",
-            Self::OpenWelcomeTips => "Open Welcome Tips",
-            Self::CompleteWelcomeTipFeature => "Complete Welcome Tip",
-            Self::DismissWelcomeTips => "Dismiss Welcome Tips",
             Self::ShowNotificationsDiscoveryBanner => "ShowNotificationsDiscoveryBanner",
             Self::NotificationsDiscoveryBannerAction => "Notifications Discovery Banner Action",
             Self::ShowNotificationsErrorBanner => "ShowNotificationsErrorBanner",
@@ -5639,17 +5176,12 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 "Notification Request Permissions Outcome"
             }
             Self::ToggleFindOption => "Find Option Toggled",
-            Self::SignUpButtonClicked => "Sign Up Button Clicked in App",
-            Self::LoginButtonClicked => "Log In Button Clicked in App",
             Self::OpenNewSessionFromFilePath => "New Session From Directory",
             Self::OpenTeamFromURI => "Open Team from URI",
             Self::SelectCommandPaletteOption => "Select Command Palette Option",
             Self::PaletteSearchOpened => "Open Palette",
             Self::PaletteSearchResultAccepted => "Command Palette Search Accepted",
             Self::PaletteSearchExited => "Command Palette Search Exited",
-            Self::AuthCommonQuestionClicked => "Auth Common Question Clicked in App",
-            Self::AuthToggleFAQ => "Auth: Toggle Common Questions",
-            Self::OpenAuthPrivacySettings => "Auth: Open Privacy Settings Overlay",
             Self::TabRenamed => "Tab Renamed",
             Self::MoveActiveTab => "Move Active Tab",
             Self::MoveTab => "Move Tab",
@@ -5662,10 +5194,8 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::JumpToBookmark => "Jumped to Bookmark Block",
             Self::JumpToBottomofBlockButtonClicked => "Jumped to Bottom of Block Button Clicked",
             Self::OpenLink => "Opened Link",
-            Self::OpenChangelogLink => "Opened Changelog Link",
             Self::ShowInFileExplorer => "Showed File in File Explorer",
             Self::CommandXRayTriggered => "Triggered Command XRay",
-            Self::OpenLaunchConfigSaveModal => "Open Save Config Modal",
             Self::SaveLaunchConfig => "Save Launch Config",
             Self::OpenLaunchConfigFile => "Open Launch Config File",
             Self::OpenLaunchConfig => "Open Launch Config",
@@ -5763,7 +5293,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::WarpDriveOpened => "Warp Drive Opened",
             Self::ToggleWarpAI => "Toggle Warp AI",
             Self::ToggleSecretRedaction => "Toggle Secret Redaction",
-            Self::CustomSecretRegexAdded => "Custom Secret Regex Added",
             Self::ToggleObfuscateSecret => "Toggle Obfuscate Secret",
             Self::CopySecret => "Copy Obfuscated Secret",
             Self::AutoGenerateMetadataSuccess => "Generate Metadata For Workflow Success",
@@ -5790,7 +5319,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::DriveSharingOnboardingBlockShown => "Warp Drive Sharing onboarding block shown",
             Self::UnsupportedShell => "Unsupported Shell",
             Self::SettingsImportInitiated => "Settings Import Initiated",
-            Self::InviteTeammates => "Invited Teammates",
             Self::CopyObjectToClipboard => "Copy Object To Clipboard",
             Self::OpenAndWarpifyDockerSubshell => "OpenAndWarpifyDockerSubshell",
             Self::UpdateBlockFilterQuery => "Update Block Filter Query",
@@ -5809,15 +5337,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::PaneDragInitiated => "Pane Drag Inititiated",
             Self::PaneDropped => "Pane Drag Ended",
             Self::AgentModeCreatedAIBlock => "AgentMode.CreatedAIBlock",
-            Self::TeamCreated => "Team Created",
-            Self::TeamJoined => "Team Joined",
-            Self::TeamLeft => "Team Left",
-            Self::TeamLinkCopied => "Team Link Copied",
-            Self::RemovedUserFromTeam => "Removed user from team",
-            Self::DeletedWorkflow => "Deleted Workflow",
-            Self::DeletedNotebook => "Deleted Notebook",
-            Self::ToggleApprovalsModal => "Toggle Approvals Modal",
-            Self::SendEmailInvites => "Sent email invites",
             Self::TierLimitHit => "Tier Limit Hit",
             Self::SharedObjectLimitHitBannerViewPlansButtonClicked => {
                 "Shared Object Limit Hit Banner View Plans Button Clicked"
@@ -5859,7 +5378,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ToggleIntelligentAutosuggestionsSetting => {
                 "Toggle Intelligent Autosuggestions Setting"
             }
-            Self::ToggleVoiceInputSetting => "Toggle Voice Input Setting",
             Self::EnvVarCollectionInvoked => "Invoked Environment Variables",
             Self::EnvVarWorkflowParameterization => {
                 "Parameterized Workflow With Environment Variables"
@@ -5904,16 +5422,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::RemoteServerSetupDuration => "RemoteServer.SetupDuration",
             #[cfg(windows)]
             Self::WSLRegistryError => "WSL Distribution Registry Error",
-            #[cfg(windows)]
-            Self::AutoupdateUnableToCloseApplications => {
-                "Windows Autoupdate: Setup Unable to Close Applications"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateFileInUse => "Windows Autoupdate: File In Use Error",
-            #[cfg(windows)]
-            Self::AutoupdateMutexTimeout => "Windows Autoupdate: Mutex Timeout",
-            #[cfg(windows)]
-            Self::AutoupdateForcekillFailed => "Windows Autoupdate: Forcekill Failed",
             Self::ToggleCodebaseContext => "Toggle Agent Mode Codebase Context",
             Self::ToggleAutoIndexing => "Toggle Codebase Context Autoindexing",
             Self::ActiveIndexedReposChanged => "Active Indexed Repos Changed",
@@ -5921,7 +5429,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::AgentModeRatedResponse => "AgentMode.RatedResponse",
             Self::ExecutedWarpDrivePrompt => "AgentMode.ExecutedWarpDrivePrompt",
             Self::ImageReceived => "Image Received",
-            Self::FileExceededContextLimit => "AgentMode.Code.FileExceededContextLimit",
             Self::AgentModeError => "AgentMode.Error",
             Self::AgentModeRequestRetrySucceeded => "AgentMode.RequestRetrySucceeded",
             Self::GrepToolSucceeded => "AgentMode.Grep.Succeeded",
@@ -5948,9 +5455,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             }
             Self::InputUXModeChanged { .. } => "Input.InputUXModeChanged",
             Self::ContextChipInteracted { .. } => "Input.ContextChipInteracted",
-            Self::VoiceInputUsed { .. } => "Input.VoiceInputUsed",
             Self::AtMenuInteracted { .. } => "Input.AtMenuInteracted",
-            Self::UserMenuUpgradeClicked => "User Menu Upgrade Clicked",
             Self::TabCloseButtonPositionUpdated { .. } => "Update Tab Close Button Position",
             Self::ExpandedCodeSuggestions { .. } => "Expanded Code Suggestion",
             Self::AIExecutionProfileCreated => "AI Execution Profile Created",
@@ -5986,29 +5491,16 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 "AgentMode.SetupCreateEnvironmentAction"
             }
             Self::InputBufferSubmitted => "AgentMode.NaturalLanguageDetection.InputBufferSubmitted",
-            Self::RecentMenuItemSelected { .. } => "Recent Menu Item Selected",
             Self::OpenRepoFolderSubmitted { .. } => "Open Repo Folder Submitted",
-            Self::OutOfCreditsBannerClosed => "revenue.OutOfCreditsBannerClosed",
-            Self::AutoReloadModalClosed => "revenue.AutoReloadModalClosed",
-            Self::AutoReloadToggledFromBillingSettings => {
-                "revenue.AutoReloadToggledFromBillingSettings"
-            }
             Self::CLISubagentControlStateChanged { .. } => "CLI Subagent Control State Changed",
             Self::CLISubagentResponsesToggled { .. } => "CLI Subagent Responses Toggled",
             Self::CLISubagentInputDismissed { .. } => "CLI Subagent Input Dismissed",
             Self::CLISubagentActionExecuted { .. } => "CLI Subagent Action Executed",
             Self::CLISubagentActionRejected { .. } => "CLI Subagent Action Rejected",
-            Self::AgentManagementViewToggled { .. } => "Agent Management View Toggled",
-            Self::AgentManagementViewOpenedSession => "Agent Management View Opened Session",
-            Self::AgentManagementViewCopiedSessionLink => {
-                "Agent Management View Copied Session Link"
-            }
-            Self::DetectedIsolationPlatform { .. } => "Isolation.DetectedIsolationPlatform",
             Self::AgentTipShown => "AgentTip Shown",
             Self::AgentTipClicked => "AgentTip Clicked",
             Self::ToggleShowAgentTips => "Toggle Show Agent Tips",
             Self::AgentExitedShellProcess => "AgentMode.ExitedShellProcess",
-            Self::CLIAgentToolbarVoiceInputUsed { .. } => "CLIAgentFooter.VoiceInputUsed",
             Self::CLIAgentToolbarImageAttached { .. } => "CLIAgentFooter.ImageAttached",
             Self::CLIAgentToolbarShown { .. } => "CLIAgentFooter.Shown",
             Self::CLIAgentPluginChipClicked { .. } => "CLIAgentPlugin.ChipClicked",
@@ -6056,23 +5548,12 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::BlockCompletedOnDogfoodOnly => {
                 "Completed a block, with extra information for dogfood only"
             }
-            Self::InitiateAnonymousUserSignup => "An anonymous user initiated the sign up flow",
-            Self::AnonymousUserExpirationLockout => {
-                "An anonymous user opened Warp after their conversion deadline and was locked out"
-            }
-            Self::AnonymousUserLinkedFromBrowser => {
-                "Received an auth payload from anonymous user after linking in browser"
-            }
-            Self::AnonymousUserHitCloudObjectLimit => {
-                "Anonymous user attempted to create a cloud object past their personal object limit"
-            }
             Self::BackgroundBlockStarted => {
                 "Warp created a background-output Block (whenever a processes has been backgrounded and yields some output)"
             }
             Self::BaselineCommandLatency => "Command execution time",
             Self::SessionCreation => "Created a tab",
             Self::MCPServerCollectionPaneOpened { .. } => "MCP Server Collection Pane Opened",
-            Self::MCPServerAdded { .. } => "MCP Server Added",
             Self::MCPTemplateCreated { .. } => "MCP Template Created",
             Self::MCPTemplateInstalled { .. } => "MCP Template Installed",
             Self::MCPTemplateShared => "MCP Template Shared",
@@ -6096,12 +5577,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::AISuggestedRuleContentChanged { .. } => {
                 "Content changed by the user in the suggested rule dialog"
             }
-            Self::ToggleSettingsSync => "Toggle Settings Sync",
-            Self::Login => "Login is successful",
-            Self::LoginLaterButtonClicked => "Clicked \"Login later\" button",
-            Self::LoginLaterConfirmationButtonClicked => {
-                "Clicked \"Yes, skip login\" confirmation button"
-            }
             Self::OpenSuggestionsMenu => "Opened a suggestion menus, such as with up arrow or tab",
             Self::ConfirmSuggestion => "Accepted tab completion suggestion",
             Self::OpenContextMenu => {
@@ -6111,9 +5586,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ContextMenuOpenShareModal => "Opened \"Share\" modal via context menu",
             Self::ContextMenuFindWithinBlocks => "Clicked \"find within blocks\" in context menu",
             Self::ContextMenuCopyPrompt => "Clicked  \"Copy Prompt\" in context menu",
-            Self::ContextMenuToggleGitPromptDirtyIndicator => {
-                "Toggled indicator of dirty git prompt"
-            }
             Self::ContextMenuInsertSelectedText => "Clicked \"insert into input\" in context menu",
             Self::ContextMenuCopySelectedText => "Clicked \"Copy selected text\" in context menu",
             Self::OpenPromptEditor => "Opened the prompt editor",
@@ -6137,7 +5609,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::EditorUnhandledModifierKey => {
                 "Used modifier keybinding keystroke which is not currently supported"
             }
-            Self::CopyInviteLink => "Clicked \"Copy Link\" on Referral Modal",
             Self::OpenThemeChooser => {
                 "Opened theme chooser (list of different themes and visualizations of those themes)"
             }
@@ -6150,13 +5621,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::CreateCustomTheme => "Created a custom theme using the built-in theme creator",
             Self::DeleteCustomTheme => "Deleted a custom theme using the built-in theme creator",
             Self::SplitPane => "Split tab into multiple panes",
-            Self::UnableToAutoUpdateToNewVersion => {
-                "Update available but not authorized to install"
-            }
-            Self::AutoupdateRelaunchAttempt => {
-                "Attempted to relaunch the app after installing an update"
-            }
-            Self::SkipOnboardingSurvey => "Skipped onboarding survey as a whole",
             Self::ToggleRestoreSession => {
                 "Toggled session restoration (\"Restore windows, tabs, panes, on startup\")"
             }
@@ -6186,9 +5650,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::OpenQuakeModeWindow => {
                 "Toggled quake mode window when previously hidden or closed"
             }
-            Self::OpenWelcomeTips => "Opened welcome tips in app",
-            Self::CompleteWelcomeTipFeature => "Completed all welcome tips items",
-            Self::DismissWelcomeTips => "Dismissed Welcome tips",
             Self::ShowNotificationsDiscoveryBanner => {
                 "Showed notifications discovery banner in the block list"
             }
@@ -6208,8 +5669,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::NotificationClicked => "Clicked desktop notification sent from Warp",
             Self::ToggleShowAgentTips => "Toggled the Show Agent Tips setting in AI settings",
             Self::ToggleFindOption => "Changed settings in Find Toggle",
-            Self::SignUpButtonClicked => "Clicked \"Sign Up\" button",
-            Self::LoginButtonClicked => "Clicked on \"Log in\" button",
             Self::OpenNewSessionFromFilePath => {
                 "Dragged a file, folder, etc. into Warp to start a session"
             }
@@ -6223,9 +5682,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::SelectNavigationPaletteItem => {
                 "Selected session from the Session Navigation Palette (search across panes, tabs, and windows)"
             }
-            Self::AuthCommonQuestionClicked => "Clicked on \"Common Question\" when logging in",
-            Self::AuthToggleFAQ => "Toggled FAQ Page when logging in",
-            Self::OpenAuthPrivacySettings => "Privacy settings are open during sign-in",
             Self::TabRenamed => "Changed tab title",
             Self::MoveActiveTab => "Move active tab left or right",
             Self::MoveTab => "Move tab left or right",
@@ -6250,12 +5706,10 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             }
             Self::ToggleShowBlockDividers => "Enabled or disabled the Show Block Dividers Button",
             Self::OpenLink => "Opened a highlighted link within input or output",
-            Self::OpenChangelogLink => "Opened the changelog link within the App",
             Self::ShowInFileExplorer => "Opened a file in Finder by using \"Show in Finder\"",
             Self::CommandXRayTriggered => {
                 "Triggered Command X-Ray (hovering over a command for explanation)"
             }
-            Self::OpenLaunchConfigSaveModal => "Opened save launch configuration modal",
             Self::SaveLaunchConfig => {
                 "Saved current launch configuration of windows, tabs, and panes"
             }
@@ -6263,15 +5717,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 "Opened the launch config YAML file from modal once saved successfully"
             }
             Self::OpenLaunchConfig => "Opened launch config for a session",
-            Self::TeamCreated => "Created a Warp Drive team",
-            Self::TeamJoined => "Joined a Warp Drive team",
-            Self::TeamLeft => "Left a Warp Drive team",
-            Self::TeamLinkCopied => "Copied a Warp Drive team link",
-            Self::RemovedUserFromTeam => "Remove user from Warp Drive team",
-            Self::DeletedWorkflow => "Deleted workflow from Warp Drive team",
-            Self::DeletedNotebook => "Deleted notebook from Warp Drive team",
-            Self::ToggleApprovalsModal => "Opened or closed teams modal",
-            Self::SendEmailInvites => "Sent email invites for Warp Drive team",
             Self::CommandCorrection => "Accepted command correction",
             Self::SetLineHeight => "Set line height through Settings -> Appearance",
             Self::ResourceCenterOpened => "Opened Resource Center pane",
@@ -6465,7 +5910,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ToggleSecretRedaction => {
                 "Toggled on/off the setting for Secret Redaction - attempts to redact secrets and sensitive information"
             }
-            Self::CustomSecretRegexAdded => "Custom Secret Regex Added",
             Self::ToggleObfuscateSecret => "Revealed or hid a secret",
             Self::CopySecret => "Copied a secret's obfuscated contents to clipboard",
             Self::AutoGenerateMetadataSuccess => {
@@ -6515,7 +5959,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::UnsupportedShell => "Booted Warp with a shell that isn't supported",
             Self::LogOut => "Logged out of the Warp client",
             Self::SettingsImportInitiated => "Started the import settings flow for new users",
-            Self::InviteTeammates => "Sent emails to invite teammates to join Warp Drive team",
             Self::CopyObjectToClipboard => "Copied an object to the user's keyboard",
             Self::OpenAndWarpifyDockerSubshell => {
                 "Warpifying a docker subshell from using the docker extension"
@@ -6579,7 +6022,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ToggleGitOperationsAutogenSetting => {
                 "Toggled on/off the git operations autogen setting"
             }
-            Self::ToggleVoiceInputSetting => "Toggled on/off the voice input setting",
             Self::UnitTestSuggestionShown { .. } => "Suggested prompt shown",
             Self::UnitTestSuggestionAccepted { .. } => "Suggested prompt accepted",
             Self::UnitTestSuggestionCancelled { .. } => "Suggested prompt cancelled",
@@ -6613,12 +6055,8 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::ConversationListViewOpened => {
                 "Opened the conversation list view in the left panel"
             }
-            Self::ConversationListItemOpened => "Opened a conversation from the conversation list",
             Self::ConversationListItemDeleted => {
                 "Deleted a conversation from the conversation list"
-            }
-            Self::ConversationListLinkCopied => {
-                "Copied a conversation link from the conversation list"
             }
             Self::AgentViewEntered => "User entered the Agent View",
             Self::AgentViewExited => "User exited the Agent View",
@@ -6694,22 +6132,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::WSLRegistryError => {
                 "Encountered an error while fetching WSL distributions from the registry"
             }
-            #[cfg(windows)]
-            Self::AutoupdateUnableToCloseApplications => {
-                "The Windows auto-update installer was unable to automatically close all applications before installing the update"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateFileInUse => {
-                "The Windows auto-update installer encountered a file-in-use error during installation"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateMutexTimeout => {
-                "The Windows auto-update installer timed out waiting for Warp to release its mutex; a force-kill was attempted"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateForcekillFailed => {
-                "The Windows auto-update installer failed to force-kill Warp after the mutex timeout"
-            }
             Self::ToggleCodebaseContext => {
                 "Toggled on/off the enablement of codebase context usage for Agent Mode."
             }
@@ -6721,7 +6143,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             }
             Self::ExecutedWarpDrivePrompt => "Executed a saved prompt.",
             Self::ImageReceived => "Received an image through an image protocol over the pty",
-            Self::FileExceededContextLimit => "File from AI exceeded context limit",
             Self::AgentModeError => "Received an error when getting Agent Mode response",
             Self::AgentModeRequestRetrySucceeded => {
                 "Agent Mode request succeeded after retrying following an initial error"
@@ -6746,9 +6167,7 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             }
             Self::InputUXModeChanged { .. } => "Changed the input UX mode",
             Self::ContextChipInteracted { .. } => "Interacted with a context chip",
-            Self::VoiceInputUsed { .. } => "Used voice input",
             Self::AtMenuInteracted { .. } => "Interacted with the @ menu",
-            Self::UserMenuUpgradeClicked => "Clicked the 'Upgrade' menu item in the user menu",
             Self::TabCloseButtonPositionUpdated { .. } => "Updated the tab close button position",
             Self::ExpandedCodeSuggestions { .. } => "Expanded the passive code diff suggestion",
             Self::AIExecutionProfileCreated => "A new AI execution profile was created",
@@ -6786,20 +6205,8 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 "User clicked a button in the Agent Mode setup create environment step"
             }
             Self::InputBufferSubmitted => "Input buffer submitted",
-            Self::RecentMenuItemSelected { .. } => {
-                "User selected an item from the recents list on the new tab zero state"
-            }
             Self::OpenRepoFolderSubmitted { .. } => {
                 "User selected a folder to open as a repo from the \"Open repository\" button"
-            }
-            Self::OutOfCreditsBannerClosed => {
-                "User closed the 'Out of credits' banner (dismissed or purchased credits)"
-            }
-            Self::AutoReloadModalClosed => {
-                "User closed the auto-reload modal (either dismissed or enabled auto-reload)"
-            }
-            Self::AutoReloadToggledFromBillingSettings => {
-                "User toggled auto-reload in Billing & Usage settings"
             }
             Self::CLISubagentControlStateChanged { .. } => {
                 "Control state changed in CLI subagent (agent in control, agent blocked, user in control, or agent tagged in)"
@@ -6816,25 +6223,10 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::CLISubagentActionRejected { .. } => {
                 "User rejected a blocked action from the CLI subagent"
             }
-            Self::AgentManagementViewToggled { .. } => {
-                "User toggled the Agent Management View open or closed"
-            }
-            Self::AgentManagementViewOpenedSession => {
-                "User opened a session from the Agent Management View"
-            }
-            Self::AgentManagementViewCopiedSessionLink => {
-                "User copied a session link from the Agent Management View"
-            }
-            Self::DetectedIsolationPlatform { .. } => {
-                "Detected that Warp is running in an isolated sandbox"
-            }
             Self::AgentTipShown => "Selected an Agent Tip to show in the Agent Mode status bar",
             Self::AgentTipClicked => "User clicked a link or action in an Agent Tip",
             Self::AgentExitedShellProcess => {
                 "An agent-requested command caused the shell process to exit"
-            }
-            Self::CLIAgentToolbarVoiceInputUsed { .. } => {
-                "User used voice input from the CLI agent footer"
             }
             Self::CLIAgentToolbarImageAttached { .. } => {
                 "User attached an image from the CLI agent footer"
