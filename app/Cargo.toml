@@ -549,7 +549,6 @@ default = [
     "pluggable_notifications",
     "agent_onboarding",
     "global_search",
-    "cloud_conversations",
     "list_skills",
     "ask_user_question",
     "bundled_skills",
