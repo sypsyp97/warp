@@ -39,6 +39,15 @@ use crate::workflows::{WorkflowSelectionSource, WorkflowSource, WorkflowType};
 use crate::workspace::{ForkedConversationDestination, ToastStack, WorkspaceAction};
 use crate::TelemetryEvent;
 
+#[cfg(feature = "local_fs")]
+use std::path::PathBuf;
+
+#[cfg(feature = "local_fs")]
+use warp_util::path::{CleanPathResult, LineAndColumnArg};
+
+#[cfg(feature = "local_fs")]
+use crate::terminal::model::session::Session;
+
 #[derive(Debug, Clone)]
 pub enum AcceptSlashCommandOrSavedPrompt {
     SlashCommand {
@@ -450,9 +459,6 @@ impl Input {
                 #[cfg(feature = "local_fs")]
                 match argument {
                     Some(args) if !args.is_empty() => {
-                        use shellexpand::tilde;
-                        use warp_util::path::CleanPathResult;
-
                         let Some(session_id) = self.active_block_session_id() else {
                             return false;
                         };
@@ -480,20 +486,14 @@ impl Input {
                             .active_block_metadata
                             .as_ref()
                             .and_then(|metadata| metadata.current_working_directory())
-                            .map(std::path::PathBuf::from);
+                            .map(str::to_owned);
 
                         let Some(current_dir) = current_dir else {
                             return false;
                         };
 
-                        let parsed_path = CleanPathResult::with_line_and_column_number(args.trim());
-                        // The argument may contain shell-escaped characters (e.g. `\ ` for
-                        // spaces) from auto-suggest. Unescape them so the path matches the
-                        // actual filesystem entry.
-                        let unescaped_path = session.shell_family().unescape(&parsed_path.path);
-                        // Expand `~` to the user's home directory.
-                        let expanded_path = tilde(&unescaped_path);
-                        let file_path = current_dir.join(&*expanded_path);
+                        let (file_path, line_col) =
+                            open_file_command_path(&session, &current_dir, args);
 
                         match std::fs::metadata(&file_path) {
                             Ok(metadata) if metadata.is_file() => {
@@ -502,7 +502,7 @@ impl Input {
                                 ctx.dispatch_typed_action(&TerminalAction::OpenCodeInWarp {
                                     path: file_path,
                                     layout: external_editor::settings::EditorLayout::SplitPane,
-                                    line_col: parsed_path.line_and_column_num,
+                                    line_col,
                                 });
                             }
                             Ok(_) => {
@@ -968,5 +968,235 @@ impl Input {
             | SlashCommandEntryState::Composing { .. }
             | SlashCommandEntryState::DisabledUntilEmptyBuffer => false,
         }
+    }
+}
+
+/// Resolves a `/open-file` argument typed by the user into a native host
+/// [`PathBuf`] plus an optional line/column hint.
+///
+/// Path resolution respects the session's path encoding so that, e.g. a WSL
+/// bash session on a Windows host returns a `\\WSL$\<distro>\...` host path
+/// rather than corrupting the unix-style relative path with the host OS
+/// separator.
+#[cfg(feature = "local_fs")]
+fn open_file_command_path(
+    session: &Session,
+    current_dir: &str,
+    raw_arg: &str,
+) -> (PathBuf, Option<LineAndColumnArg>) {
+    let trimmed = raw_arg.trim();
+    let CleanPathResult {
+        path,
+        line_and_column_num,
+    } = CleanPathResult::with_line_and_column_number(trimmed);
+
+    // The argument may contain shell-escaped characters (e.g. `\ ` for
+    // spaces) from auto-suggest. Unescape them so the path matches the
+    // actual filesystem entry.
+    let unescaped = session.shell_family().unescape(&path);
+    // Expand `~` to the user's home directory.
+    let expanded = shellexpand::tilde(&unescaped);
+
+    // Resolve the path relative to `current_dir` using the session's path
+    // encoding so unix-style paths in a WSL/MSYS2 session aren't joined with
+    // the host OS separator.
+    let cwd_path = session.convert_directory_to_typed_path_buf(current_dir.to_owned());
+    let arg_path = session.convert_directory_to_typed_path_buf(expanded.into_owned());
+    let shell_path = cwd_path.join(arg_path.to_path()).normalize();
+
+    let native_path = match session.maybe_convert_to_native_path(&shell_path.to_path()) {
+        Ok(path) => path,
+        Err(err) => {
+            log::warn!("Failed to convert /open-file path to native host path: {err}");
+            PathBuf::from(shell_path.to_string_lossy().into_owned())
+        }
+    };
+
+    (native_path, line_and_column_num)
+}
+
+#[cfg(all(test, feature = "local_fs", windows))]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use warp_util::path::LineAndColumnArg;
+
+    use super::*;
+    use crate::terminal::model::session::command_executor::testing::TestCommandExecutor;
+    use crate::terminal::model::session::{Session, SessionInfo};
+    use crate::terminal::shell::ShellType;
+    use crate::terminal::ShellLaunchData;
+
+    /// Builds a [`Session`] that mimics a WSL-Ubuntu-on-Windows-host scenario:
+    /// the shell speaks Posix path encoding while the host is Windows.
+    fn wsl_ubuntu_session() -> Session {
+        Session::new(
+            SessionInfo::new_for_test().with_shell_type(ShellType::Bash),
+            Arc::new(TestCommandExecutor::default()),
+        )
+        .with_shell_launch_data(ShellLaunchData::WSL {
+            distro: "Ubuntu".to_owned(),
+        })
+    }
+
+    #[test]
+    fn relative_subdir_path_is_resolved_against_cwd_and_translated_to_wsl_unc() {
+        let session = wsl_ubuntu_session();
+
+        let (path, line_col) =
+            open_file_command_path(&session, "/home/ubuntu", "subdir/test.txt");
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"\\WSL$\Ubuntu\home\ubuntu\subdir\test.txt"),
+        );
+        assert_eq!(line_col, None);
+    }
+
+    #[test]
+    fn parent_directory_traversal_is_normalized_before_wsl_translation() {
+        let session = wsl_ubuntu_session();
+
+        let (path, line_col) =
+            open_file_command_path(&session, "/home/ubuntu/project", "../test.txt");
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"\\WSL$\Ubuntu\home\ubuntu\test.txt"),
+        );
+        assert_eq!(line_col, None);
+    }
+
+    #[test]
+    fn shell_escaped_space_in_filename_is_unescaped_before_resolution() {
+        let session = wsl_ubuntu_session();
+
+        // One literal backslash before the space: this is how Posix shells
+        // (and Warp's auto-suggest) represent a literal space inside a path.
+        let (path, line_col) =
+            open_file_command_path(&session, "/home/ubuntu", r"subdir/file\ name.txt");
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"\\WSL$\Ubuntu\home\ubuntu\subdir\file name.txt"),
+        );
+        assert_eq!(line_col, None);
+    }
+
+    #[test]
+    fn line_and_column_suffix_is_split_off_and_path_is_still_resolved() {
+        let session = wsl_ubuntu_session();
+
+        let (path, line_col) =
+            open_file_command_path(&session, "/home/ubuntu", "subdir/test.txt:4:2");
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"\\WSL$\Ubuntu\home\ubuntu\subdir\test.txt"),
+        );
+        assert_eq!(
+            line_col,
+            Some(LineAndColumnArg {
+                line_num: 4,
+                column_num: Some(2),
+            }),
+        );
+    }
+
+    // --- Additional cases derived from the spec contract -----------------
+
+    #[test]
+    fn line_only_suffix_yields_line_with_no_column() {
+        let session = wsl_ubuntu_session();
+
+        let (path, line_col) =
+            open_file_command_path(&session, "/home/ubuntu", "subdir/test.txt:42");
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"\\WSL$\Ubuntu\home\ubuntu\subdir\test.txt"),
+        );
+        assert_eq!(
+            line_col,
+            Some(LineAndColumnArg {
+                line_num: 42,
+                column_num: None,
+            }),
+        );
+    }
+
+    #[test]
+    fn surrounding_whitespace_is_trimmed_from_arg() {
+        let session = wsl_ubuntu_session();
+
+        let (path, line_col) =
+            open_file_command_path(&session, "/home/ubuntu", "  subdir/test.txt  ");
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"\\WSL$\Ubuntu\home\ubuntu\subdir\test.txt"),
+        );
+        assert_eq!(line_col, None);
+    }
+
+    #[test]
+    fn whitespace_around_arg_is_trimmed_even_when_line_column_present() {
+        let session = wsl_ubuntu_session();
+
+        let (path, line_col) =
+            open_file_command_path(&session, "/home/ubuntu", "\tsubdir/test.txt:7:3\n");
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"\\WSL$\Ubuntu\home\ubuntu\subdir\test.txt"),
+        );
+        assert_eq!(
+            line_col,
+            Some(LineAndColumnArg {
+                line_num: 7,
+                column_num: Some(3),
+            }),
+        );
+    }
+
+    #[test]
+    fn absolute_wsl_path_in_arg_overrides_cwd() {
+        let session = wsl_ubuntu_session();
+
+        // If the argument is itself absolute (in the shell's encoding), joining
+        // it to the cwd via TypedPath should drop the cwd and keep the absolute
+        // path, which must still be translated to the host UNC representation.
+        let (path, line_col) = open_file_command_path(
+            &session,
+            "/home/ubuntu/project",
+            "/home/ubuntu/other/test.txt",
+        );
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"\\WSL$\Ubuntu\home\ubuntu\other\test.txt"),
+        );
+        assert_eq!(line_col, None);
+    }
+
+    #[test]
+    fn mounted_windows_drive_path_in_wsl_resolves_to_windows_drive() {
+        let session = wsl_ubuntu_session();
+
+        // /mnt/<drive>/... is WSL's view of a Windows drive; the helper must
+        // translate it back to the native drive-letter path rather than to a
+        // \\WSL$\... UNC path.
+        let (path, line_col) = open_file_command_path(
+            &session,
+            "/home/ubuntu",
+            "/mnt/c/Users/username/project/file.txt",
+        );
+
+        assert_eq!(
+            path,
+            PathBuf::from(r"c:\Users\username\project\file.txt"),
+        );
+        assert_eq!(line_col, None);
     }
 }
