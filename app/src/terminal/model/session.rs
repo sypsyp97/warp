@@ -1256,7 +1256,7 @@ impl Session {
                 // Report this error so we have some data on whether this method
                 // of running PowerShell commands is reliable. If this turns out
                 // to be noisy, we can remove this log line.
-                log::error!(
+                log::warn!(
                     "Failed to read history using PowerShell commands: {powershell_error:?}"
                 );
                 Ok(contents)
