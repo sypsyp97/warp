@@ -3698,7 +3698,6 @@ impl DriveIndex {
         };
         let can_move_or_trash = self.online_only_operation_allowed(cloud_object_type_and_id, app);
         let cloud_view_model = CloudViewModel::as_ref(app);
-        let access_level = cloud_view_model.access_level(&cloud_object_type_and_id.uid(), app);
         let editability = cloud_view_model.object_editability(&cloud_object_type_and_id.uid(), app);
         let object = CloudModel::as_ref(app).get_by_uid(&cloud_object_type_and_id.uid());
 

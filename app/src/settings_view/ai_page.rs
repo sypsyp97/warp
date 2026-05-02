@@ -42,7 +42,6 @@ use itertools::Itertools;
 use regex::Regex;
 use settings::{Setting, ToggleableSetting};
 use strum::IntoEnumIterator;
-use warp_core::channel::ChannelState;
 use warp_core::context_flag::ContextFlag;
 use warp_core::features::FeatureFlag;
 use warp_core::ui::theme::color::internal_colors;
@@ -320,7 +319,7 @@ pub fn init_actions_from_parent_view<T: Action + Clone>(
             flags::NATURAL_LANGUAGE_AUTOSUGGESTIONS_FLAG,
         )
         .with_group(bindings::BindingGroup::WarpAi)
-        .with_enabled(|| FeatureFlag::PredictAMQueries.is_enabled())],
+        .with_enabled(|| false)],
         app,
     );
     ToggleSettingActionPair::add_toggle_setting_action_pairs_as_bindings(
@@ -333,7 +332,7 @@ pub fn init_actions_from_parent_view<T: Action + Clone>(
             flags::SHARED_BLOCK_TITLE_GENERATION_FLAG,
         )
         .with_group(bindings::BindingGroup::WarpAi)
-        .with_enabled(|| FeatureFlag::SharedBlockTitleGeneration.is_enabled())],
+        .with_enabled(|| false)],
         app,
     );
     ToggleSettingActionPair::add_toggle_setting_action_pairs_as_bindings(
@@ -356,19 +355,17 @@ pub fn init_actions_from_parent_view<T: Action + Clone>(
         .with_group(bindings::BindingGroup::WarpAi)],
         app,
     );
-    if !FeatureFlag::FullSourceCodeEmbedding.is_enabled() {
-        ToggleSettingActionPair::add_toggle_setting_action_pairs_as_bindings(
-            vec![ToggleSettingActionPair::new(
-                "codebase index",
-                builder(SettingsAction::AI(
-                    AISettingsPageAction::ToggleCodebaseContext,
-                )),
-                &(context.clone() & id!(flags::IS_ANY_AI_ENABLED)),
-                flags::IS_CODEBASE_INDEXING_ENABLED,
-            )],
-            app,
-        );
-    }
+    ToggleSettingActionPair::add_toggle_setting_action_pairs_as_bindings(
+        vec![ToggleSettingActionPair::new(
+            "codebase index",
+            builder(SettingsAction::AI(
+                AISettingsPageAction::ToggleCodebaseContext,
+            )),
+            &(context.clone() & id!(flags::IS_ANY_AI_ENABLED)),
+            flags::IS_CODEBASE_INDEXING_ENABLED,
+        )],
+        app,
+    );
 }
 
 pub struct AISettingsPageView {
@@ -1344,27 +1341,13 @@ impl AISettingsPageView {
             None => {
                 // Full page: all widgets (legacy behavior)
                 widgets.push(Box::new(GlobalAIWidget::default()));
-                if !FeatureFlag::UsageBasedPricing.is_enabled() {
-                    widgets.push(Box::new(UsageWidget::default()));
-                }
+                widgets.push(Box::new(UsageWidget::default()));
                 if ai_settings
                     .intelligent_autosuggestions_enabled_internal
                     .is_supported_on_current_platform()
                     || ai_settings
                         .prompt_suggestions_enabled_internal
                         .is_supported_on_current_platform()
-                    || (FeatureFlag::PredictAMQueries.is_enabled()
-                        && ai_settings
-                            .natural_language_autosuggestions_enabled_internal
-                            .is_supported_on_current_platform())
-                    || (FeatureFlag::SharedBlockTitleGeneration.is_enabled()
-                        && ai_settings
-                            .shared_block_title_generation_enabled_internal
-                            .is_supported_on_current_platform())
-                    || (FeatureFlag::GitOperationsInCodeReview.is_enabled()
-                        && ai_settings
-                            .git_operations_autogen_enabled_internal
-                            .is_supported_on_current_platform())
                 {
                     widgets.push(Box::new(ActiveAIWidget::default()));
                 }
@@ -1390,18 +1373,6 @@ impl AISettingsPageView {
                     || ai_settings
                         .prompt_suggestions_enabled_internal
                         .is_supported_on_current_platform()
-                    || (FeatureFlag::PredictAMQueries.is_enabled()
-                        && ai_settings
-                            .natural_language_autosuggestions_enabled_internal
-                            .is_supported_on_current_platform())
-                    || (FeatureFlag::SharedBlockTitleGeneration.is_enabled()
-                        && ai_settings
-                            .shared_block_title_generation_enabled_internal
-                            .is_supported_on_current_platform())
-                    || (FeatureFlag::GitOperationsInCodeReview.is_enabled()
-                        && ai_settings
-                            .git_operations_autogen_enabled_internal
-                            .is_supported_on_current_platform())
                 {
                     widgets.push(Box::new(ActiveAIWidget::default()));
                 }
@@ -1411,9 +1382,7 @@ impl AISettingsPageView {
                 widgets.push(Box::new(OtherAIWidget::default()));
             }
             Some(AISubpage::Profiles) => {
-                if !FeatureFlag::UsageBasedPricing.is_enabled() {
-                    widgets.push(Box::new(UsageWidget::default()));
-                }
+                widgets.push(Box::new(UsageWidget::default()));
                 widgets.push(Box::new(AgentsWidget::default()));
             }
             Some(AISubpage::Knowledge) => {
@@ -3237,35 +3206,16 @@ impl ActiveAIWidget {
                 .is_supported_on_current_platform()
     }
 
-    fn is_natural_language_autosuggestions_toggleable(&self, app: &AppContext) -> bool {
-        FeatureFlag::PredictAMQueries.is_enabled()
-            && AISettings::as_ref(app)
-                .natural_language_autosuggestions_enabled_internal
-                .is_supported_on_current_platform()
+    fn is_natural_language_autosuggestions_toggleable(&self, _app: &AppContext) -> bool {
+        false
     }
 
-    // TODO: Check if the user's enterprise billing policy allows toggling this feature.
-    fn is_shared_block_title_generation_toggleable(&self, app: &AppContext) -> bool {
-        FeatureFlag::SharedBlockTitleGeneration.is_enabled()
-            && AISettings::as_ref(app)
-                .shared_block_title_generation_enabled_internal
-                .is_supported_on_current_platform()
-            && (!UserWorkspaces::as_ref(app)
-                .current_team()
-                .is_some_and(|team| {
-                    team.billing_metadata.customer_type == CustomerType::Enterprise
-                })
-                // Override the enterprise check for dogfood builds, as our dogfood team
-                // is an enterprise team.
-                || ChannelState::channel().is_dogfood())
+    fn is_shared_block_title_generation_toggleable(&self, _app: &AppContext) -> bool {
+        false
     }
 
-    fn is_git_operations_autogen_toggleable(&self, app: &AppContext) -> bool {
-        FeatureFlag::GitOperationsInCodeReview.is_enabled()
-            && AISettings::as_ref(app)
-                .git_operations_autogen_enabled_internal
-                .is_supported_on_current_platform()
-            && UserWorkspaces::as_ref(app).ai_allowed_for_current_team()
+    fn is_git_operations_autogen_toggleable(&self, _app: &AppContext) -> bool {
+        false
     }
 
     fn render_next_command_section(
@@ -3817,17 +3767,15 @@ impl AgentsWidget {
             widget_children.push(mcp_permissions);
         }
 
-        if !FeatureFlag::FullSourceCodeEmbedding.is_enabled() {
-            let codebase_context = Self::render_codebase_context_outline_generation_setting(
-                self.codebase_context_toggle.clone(),
-                self.codebase_context_link_index.clone(),
-                view,
-                ai_settings,
-                appearance,
-                app,
-            );
-            widget_children.push(codebase_context);
-        }
+        let codebase_context = Self::render_codebase_context_outline_generation_setting(
+            self.codebase_context_toggle.clone(),
+            self.codebase_context_link_index.clone(),
+            view,
+            ai_settings,
+            appearance,
+            app,
+        );
+        widget_children.push(codebase_context);
 
         Flex::column().with_children(widget_children).finish()
     }
