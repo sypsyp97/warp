@@ -1318,33 +1318,39 @@ impl AISettings {
 
         let spawner = app.update_model(&Self::handle(app), |_me, ctx| ctx.spawner());
 
-        tokio::spawn(async move {
-            while let Ok(tokens) = rx.recv().await {
-                let result = spawner
-                    .spawn(move |settings: &mut Self, ctx| {
-                        let _ = settings
-                            .byo_api_key
-                            .set_value(tokens.access_token.clone(), ctx);
-                        if let Some(rt) = tokens.refresh_token.as_ref() {
+        // Detach onto warpui's own background tokio runtime instead of
+        // the ambient one — `register_and_subscribe_to_events` is called
+        // from `App::run`'s main thread before the global tokio context
+        // is in place, so a bare `tokio::spawn` here would panic.
+        app.background_executor()
+            .spawn(async move {
+                while let Ok(tokens) = rx.recv().await {
+                    let result = spawner
+                        .spawn(move |settings: &mut Self, ctx| {
                             let _ = settings
-                                .byo_chatgpt_refresh_token
-                                .set_value(rt.clone(), ctx);
-                        }
-                        if let Some(idt) = tokens.id_token.as_ref() {
+                                .byo_api_key
+                                .set_value(tokens.access_token.clone(), ctx);
+                            if let Some(rt) = tokens.refresh_token.as_ref() {
+                                let _ = settings
+                                    .byo_chatgpt_refresh_token
+                                    .set_value(rt.clone(), ctx);
+                            }
+                            if let Some(idt) = tokens.id_token.as_ref() {
+                                let _ = settings
+                                    .byo_chatgpt_id_token
+                                    .set_value(idt.clone(), ctx);
+                            }
                             let _ = settings
-                                .byo_chatgpt_id_token
-                                .set_value(idt.clone(), ctx);
-                        }
-                        let _ = settings
-                            .byo_chatgpt_token_expires_at
-                            .set_value(tokens.expires_at, ctx);
-                    })
-                    .await;
-                if let Err(e) = result {
-                    log::warn!("Could not persist refreshed ChatGPT tokens: {e:?}");
+                                .byo_chatgpt_token_expires_at
+                                .set_value(tokens.expires_at, ctx);
+                        })
+                        .await;
+                    if let Err(e) = result {
+                        log::warn!("Could not persist refreshed ChatGPT tokens: {e:?}");
+                    }
                 }
-            }
-        });
+            })
+            .detach();
     }
 
     /// Copy the current BYO fields into the global snapshot consumed
