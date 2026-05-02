@@ -934,8 +934,11 @@ pub const RELEASE_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::Autoupdate,
     FeatureFlag::Changelog,
     FeatureFlag::CrashReporting,
-    // Marked text is currently only supported on MacOS.
-    #[cfg(target_os = "macos")]
+    // IME preedit (composition) text. Implementation is platform-agnostic in slim:
+    // winit::WindowEvent::Ime arrives on all platforms (incl. Windows IMM/TSF),
+    // event_loop dispatches SetMarkedText, grid_renderer underlines marked_text.
+    // Upstream had this gated to macOS in release; the comment was stale and the
+    // gate broke CJK/Japanese/Korean entry on Windows release builds (#3944).
     FeatureFlag::ImeMarkedText,
 ];
 
