@@ -37,7 +37,6 @@ use warp_cli::{
     task::{MessageCommand, TaskCommand},
     CliCommand, GlobalOptions,
 };
-use warp_core::features::FeatureFlag;
 use warp_isolation_platform::IsolationPlatformError;
 #[cfg(not(target_family = "wasm"))]
 use warp_logging::log_file_path;
@@ -136,65 +135,25 @@ fn dispatch_command(
 ) -> anyhow::Result<()> {
     match command {
         CliCommand::Agent(agent_cmd) => run_agent(ctx, global_options, agent_cmd),
-        CliCommand::Environment(environment_cmd) => {
-            if !FeatureFlag::CloudEnvironments.is_enabled() {
-                return Err(anyhow::anyhow!("invalid value 'environment'"));
-            }
-            environment::run(ctx, global_options, environment_cmd)
-        }
+        CliCommand::Environment(_) => Err(anyhow::anyhow!("invalid value 'environment'")),
         CliCommand::MCP(mcp_cmd) => mcp::run(ctx, global_options, mcp_cmd),
         CliCommand::Run(task_cmd) => run_task(ctx, global_options, task_cmd),
         CliCommand::Model(model_cmd) => model::run(ctx, global_options, model_cmd),
         CliCommand::Login => admin::login(ctx),
         CliCommand::Logout => admin::logout(ctx),
         CliCommand::Whoami => admin::whoami(ctx, global_options.output_format),
-        CliCommand::Provider(provider_cmd) => {
-            if !FeatureFlag::ProviderCommand.is_enabled() {
-                return Err(anyhow::anyhow!("invalid value 'provider'"));
-            }
-            provider::run(ctx, global_options, provider_cmd)
-        }
+        CliCommand::Provider(_) => Err(anyhow::anyhow!("invalid value 'provider'")),
         #[cfg(not(target_family = "wasm"))]
         CliCommand::Integration(integration_cmd) => {
-            if !FeatureFlag::IntegrationCommand.is_enabled() {
-                return Err(anyhow::anyhow!("invalid value 'integration'"));
-            }
             integration::run(ctx, global_options, integration_cmd)
         }
         #[cfg(target_family = "wasm")]
-        CliCommand::Integration(_) => {
-            return Err(anyhow::anyhow!("invalid value 'integration'"));
-        }
-        CliCommand::Schedule(schedule_cmd) => {
-            if !FeatureFlag::ScheduledAmbientAgents.is_enabled() {
-                return Err(anyhow::anyhow!("invalid value 'schedule'"));
-            }
-            schedule::run(ctx, global_options, schedule_cmd)
-        }
-        CliCommand::Secret(secret_cmd) => {
-            if !FeatureFlag::WarpManagedSecrets.is_enabled() {
-                return Err(anyhow::anyhow!("invalid value 'secret'"));
-            }
-            secret::run(ctx, global_options, secret_cmd)
-        }
-        CliCommand::Federate(federate_cmd) => {
-            if !FeatureFlag::OzIdentityFederation.is_enabled() {
-                return Err(anyhow::anyhow!("invalid value 'federate'"));
-            }
-            federate::run(ctx, global_options, federate_cmd)
-        }
-        CliCommand::HarnessSupport(args) => {
-            if !FeatureFlag::AgentHarness.is_enabled() {
-                return Err(anyhow::anyhow!("invalid value 'harness-support'"));
-            }
-            harness_support::run(ctx, global_options, args)
-        }
-        CliCommand::Artifact(artifact_cmd) => {
-            if !FeatureFlag::ArtifactCommand.is_enabled() {
-                return Err(anyhow::anyhow!("invalid value 'artifact'"));
-            }
-            artifact::run(ctx, global_options, artifact_cmd)
-        }
+        CliCommand::Integration(_) => Err(anyhow::anyhow!("invalid value 'integration'")),
+        CliCommand::Schedule(_) => Err(anyhow::anyhow!("invalid value 'schedule'")),
+        CliCommand::Secret(_) => Err(anyhow::anyhow!("invalid value 'secret'")),
+        CliCommand::Federate(_) => Err(anyhow::anyhow!("invalid value 'federate'")),
+        CliCommand::HarnessSupport(_) => Err(anyhow::anyhow!("invalid value 'harness-support'")),
+        CliCommand::Artifact(artifact_cmd) => artifact::run(ctx, global_options, artifact_cmd),
     }
 }
 
@@ -239,24 +198,19 @@ fn run_agent(
 ) -> anyhow::Result<()> {
     match command {
         AgentCommand::Run(args) => {
-            if args.environment.is_some() && !FeatureFlag::CloudEnvironments.is_enabled() {
+            if args.environment.is_some() {
                 return Err(anyhow::anyhow!("unexpected argument '--environment' found"));
             }
-            if args.conversation.is_some() && !FeatureFlag::CloudConversations.is_enabled() {
+            if args.conversation.is_some() {
                 return Err(anyhow::anyhow!(
                     "unexpected argument '--conversation' found"
                 ));
             }
-            if args.skill.is_some() && !FeatureFlag::OzPlatformSkills.is_enabled() {
+            if args.skill.is_some() {
                 return Err(anyhow::anyhow!("unexpected argument '--skill' found"));
             }
-            if args.harness != Harness::Oz && !FeatureFlag::AgentHarness.is_enabled() {
+            if args.harness != Harness::Oz {
                 return Err(anyhow::anyhow!("unexpected argument '--harness' found"));
-            }
-            if args.harness == Harness::OpenCode {
-                return Err(anyhow::anyhow!(
-                    "The opencode harness is only supported for local child agent launches."
-                ));
             }
 
             let server_api = ServerApiProvider::handle(ctx).as_ref(ctx).get_ai_client();
@@ -283,27 +237,9 @@ fn run_agent(
 
             Ok(())
         }
-        AgentCommand::RunCloud(args) => {
-            if args.environment.environment.is_some()
-                && !FeatureFlag::CloudEnvironments.is_enabled()
-            {
-                return Err(anyhow::anyhow!("unexpected argument '--environment' found"));
-            }
-            if args.conversation.is_some() && !FeatureFlag::CloudConversations.is_enabled() {
-                return Err(anyhow::anyhow!(
-                    "unexpected argument '--conversation' found"
-                ));
-            }
-            if args.harness != Harness::Oz && !FeatureFlag::AgentHarness.is_enabled() {
-                return Err(anyhow::anyhow!("unexpected argument '--harness' found"));
-            }
-            if args.claude_auth_secret.is_some() && args.harness != Harness::Claude {
-                return Err(anyhow::anyhow!(
-                    "--claude-auth-secret is only valid with --harness claude."
-                ));
-            }
-            ambient::run_ambient_agent(ctx, args)
-        }
+        AgentCommand::RunCloud(_) => Err(anyhow::anyhow!(
+            "Cloud agent runs are not available in this build."
+        )),
         AgentCommand::Profile(sub) => profiles::run(ctx, global_options, sub),
         AgentCommand::List(args) => agent_config::list_agents(ctx, args),
     }
@@ -480,47 +416,16 @@ fn resolve_prompt(prompt: &Prompt, ctx: &AppContext) -> Result<String, AgentDriv
     }
 }
 
-/// Run the task with the provided command.
+/// Run the task with the provided command. The ambient/cloud task surface is
+/// not available in slim builds.
 fn run_task(
-    ctx: &mut AppContext,
-    global_options: GlobalOptions,
-    command: TaskCommand,
+    _ctx: &mut AppContext,
+    _global_options: GlobalOptions,
+    _command: TaskCommand,
 ) -> anyhow::Result<()> {
-    match command {
-        TaskCommand::List(args) => ambient::list_ambient_agent_tasks(ctx, global_options, args),
-        TaskCommand::Get(args) => {
-            if args.conversation {
-                if !FeatureFlag::ConversationApi.is_enabled() {
-                    return Err(anyhow::anyhow!(
-                        "The --conversation flag is not available in this build"
-                    ));
-                }
-                ambient::get_run_conversation(ctx, args.task_id)
-            } else {
-                ambient::get_ambient_agent_task_status(ctx, global_options, args)
-            }
-        }
-        TaskCommand::Conversation(conv_cmd) => {
-            if !FeatureFlag::ConversationApi.is_enabled() {
-                return Err(anyhow::anyhow!(
-                    "The 'conversation' subcommand is not available in this build"
-                ));
-            }
-            match conv_cmd {
-                warp_cli::task::ConversationCommand::Get(args) => {
-                    ambient::get_conversation(ctx, args.conversation_id)
-                }
-            }
-        }
-        TaskCommand::Message(message_cmd) => {
-            if !FeatureFlag::OrchestrationV2.is_enabled() {
-                return Err(anyhow::anyhow!(
-                    "The 'message' subcommand is not available in this build"
-                ));
-            }
-            ambient::run_message(ctx, global_options, message_cmd)
-        }
-    }
+    Err(anyhow::anyhow!(
+        "Cloud task commands are not available in this build."
+    ))
 }
 
 /// Singleton model that provides a ModelContext for spawning async operations
@@ -681,9 +586,6 @@ impl AgentDriverRunner {
         args: &RunAgentArgs,
         working_dir: &Path,
     ) -> Result<Option<ResolvedSkill>, AgentDriverError> {
-        if !FeatureFlag::OzPlatformSkills.is_enabled() {
-            return Ok(None);
-        }
         let Some(skill_spec) = args.skill.clone() else {
             return Ok(None);
         };
@@ -751,8 +653,7 @@ impl AgentDriverRunner {
                     build_merged_config_and_task(&args, &resolved_skill, &prompt_clone, ctx)?;
 
                 let task_id = args.task_id.as_ref().and_then(|s| s.parse().ok());
-                let should_share = (args.share.is_shared() || args.task_id.is_some())
-                    && FeatureFlag::AgentSharedSessions.is_enabled();
+                let should_share = false;
 
                 let driver_options = driver::AgentDriverOptions {
                     working_dir: working_dir.clone(),
@@ -928,24 +829,8 @@ impl AgentDriverRunner {
         // Handoff snapshot attachments for follow-up executions are written to
         // {attachments_dir}/handoff/{uuid} so the server-side rehydration prompt
         // references resolve to real files.
-        let handoff_snapshot_ai_client = ai_client.clone();
-        let handoff_snapshot_server_api = server_api.clone();
-        let handoff_snapshot_download_dir = attachments_download_dir.clone();
-        let handoff_snapshot = async move {
-            if !FeatureFlag::OzHandoff.is_enabled() {
-                return Ok(None);
-            }
-            let Some(task_id_parsed) = parsed_task_id else {
-                return Ok(None);
-            };
-            driver::attachments::fetch_and_download_handoff_snapshot_attachments(
-                handoff_snapshot_ai_client,
-                handoff_snapshot_server_api.http_client(),
-                task_id_parsed,
-                handoff_snapshot_download_dir,
-            )
-            .await
-        };
+        // OzHandoff is dropped from slim, so the handoff snapshot is always empty.
+        let handoff_snapshot = async move { Ok::<_, anyhow::Error>(None) };
         let (secrets_result, attachments_result, task_metadata_result, handoff_snapshot_result) =
             futures::future::join4(
                 task_secrets,
@@ -1161,16 +1046,6 @@ impl AgentDriverRunner {
                     .map(|env| env.model().string_model.clone())
             })
             .await??;
-
-        if FeatureFlag::OzIdentityFederation.is_enabled() {
-            let run_id = driver_options
-                .task_id
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| "local".to_string());
-            driver_options.cloud_providers =
-                driver::cloud_provider::load_providers(&environment.providers, &run_id)
-                    .map_err(AgentDriverError::CloudProviderSetupFailed)?;
-        }
 
         driver_options.environment = Some(environment);
         Ok(())
