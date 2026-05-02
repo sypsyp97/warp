@@ -101,11 +101,30 @@ pub fn convert_keyboard_input_event(
         {
             input.key_without_modifiers()
         }
-        _ => input.logical_key,
+        _ => input.logical_key.clone(),
     };
     let input_key = get_input_key(&logical_key, shift);
 
-    let key = convert_key(input_key)?.to_string();
+    let mut key = convert_key(input_key)?.to_string();
+
+    // Issue #341: on non-Latin layouts (Cyrillic, CJK, Greek, ...), Ctrl+P / Cmd+P
+    // produces a layout-translated character (e.g. "З") that never matches the Latin
+    // shortcut binding string. When Ctrl or Cmd is held — signalling shortcut intent,
+    // not character input — and the layout produced a non-ASCII character, fall back
+    // to the layout-independent physical key. Latin layouts (US, German QWERTZ, French
+    // AZERTY, etc.) are unaffected because their `key` is already ASCII.
+    let has_shortcut_modifier =
+        window_state.modifiers.control_key() || window_state.modifiers.super_key();
+    if has_shortcut_modifier {
+        let physical = {
+            let unmodified = input.key_without_modifiers();
+            let unmodified_input = get_input_key(&unmodified, shift);
+            convert_key(unmodified_input).map(|k| k.to_string())
+        };
+        if let Some(replacement) = prefer_physical_for_shortcut(&key, physical.as_deref()) {
+            key = replacement;
+        }
+    }
 
     let keystroke = Keystroke {
         ctrl: window_state.modifiers.control_key(),
@@ -132,6 +151,28 @@ pub fn convert_keyboard_input_event(
         },
         is_composing: false,
     })
+}
+
+/// Decides whether the layout-translated `logical_key` should be replaced by the
+/// layout-independent `physical_key` for keystroke matching.
+///
+/// Returns `Some(physical_key.to_owned())` when the caller should override; `None`
+/// when it should keep `logical_key`. The override applies only when `logical_key`
+/// is non-ASCII (i.e. a non-Latin layout produced a foreign character) and a usable
+/// ASCII `physical_key` is available. The caller is expected to have already
+/// confirmed that a shortcut modifier (Ctrl / Cmd) is held.
+///
+/// See upstream issue #341.
+fn prefer_physical_for_shortcut(logical_key: &str, physical_key: Option<&str>) -> Option<String> {
+    if logical_key.is_ascii() {
+        return None;
+    }
+    let physical = physical_key?;
+    if physical.is_ascii() && !physical.is_empty() {
+        Some(physical.to_owned())
+    } else {
+        None
+    }
 }
 
 #[cfg(not(target_family = "wasm"))]
