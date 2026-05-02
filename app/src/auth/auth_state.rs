@@ -52,17 +52,14 @@ impl AuthState {
         }
     }
 
-    /// Creates and initializes auth state. Checks, in order:
-    /// 1. Test user (test/integration/skip_login builds)
-    /// 2. Provided API key
-    /// 3. WARP_USER_SECRET environment variable
-    /// 4. Persisted user from secure storage
+    /// Creates and initializes auth state.
+    ///
+    /// Slim fork: there is no Warp account. Leave credentials/user empty so
+    /// every `is_logged_in()` branch in the codebase that gates a cloud call
+    /// naturally short-circuits. AI gating uses a separate override in
+    /// `AISettings::is_any_ai_enabled`.
     #[cfg_attr(target_family = "wasm", allow(dead_code))]
     pub fn initialize(ctx: &AppContext, _api_key: Option<String>) -> Self {
-        // Slim fork: there is no Warp account. Leave credentials/user
-        // empty so every `is_logged_in()` branch in the codebase that
-        // gates a cloud call naturally short-circuits. AI gating uses
-        // a separate override in `AISettings::is_any_ai_enabled`.
         Self::new(ctx)
     }
 

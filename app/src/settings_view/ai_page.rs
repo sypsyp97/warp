@@ -4897,7 +4897,6 @@ impl SettingsWidget for AIFactWidget {
     }
 }
 
-// Slim fork: VoiceWidget (and Wispr Flow integration) removed.
 #[derive(Default)]
 struct OtherAIWidget {
     show_oz_updates_in_zero_state_toggle: SwitchStateHandle,

@@ -23925,7 +23925,6 @@ impl TypedActionView for TerminalView {
             | IndexProjectSpeedbump
             | OpenViewMCPPane
             | OpenAddMCPPane
-            | OpenBillingAndUsagePane
             | OpenAddRulePane
             | OpenRulesPane
             | OpenEditSkillPane { .. }
@@ -24781,10 +24780,6 @@ impl TypedActionView for TerminalView {
                 ctx.emit(Event::OpenMCPSettingsPage {
                     page: Some(MCPServersSettingsPage::Edit { item_id: None }),
                 });
-            }
-            OpenBillingAndUsagePane => {
-                // Slim fork: BillingAndUsage page is removed; route to Privacy instead.
-                ctx.emit(Event::OpenSettings(SettingsSection::Privacy));
             }
             OpenAddRulePane => {
                 ctx.emit(Event::OpenAddRulePane);
