@@ -50,7 +50,6 @@ pub enum PromptAlertAction {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
 pub enum PromptAlertEvent {
-    OpenBillingAndUsagePage,
     OpenPrivacyPage,
     OpenBillingPortal { team_uid: ServerId },
 }
@@ -474,10 +473,8 @@ impl TypedActionView for PromptAlertView {
 
     fn handle_action(&mut self, action: &Self::Action, ctx: &mut ViewContext<Self>) {
         match action {
-            PromptAlertAction::OpenSettings => {
-                ctx.emit(PromptAlertEvent::OpenBillingAndUsagePage);
-            }
-            PromptAlertAction::OpenPrivacySettings => {
+            // Slim fork: BillingAndUsage page is removed; route to Privacy.
+            PromptAlertAction::OpenSettings | PromptAlertAction::OpenPrivacySettings => {
                 ctx.emit(PromptAlertEvent::OpenPrivacyPage);
             }
             PromptAlertAction::ManageBilling { team_uid } => {

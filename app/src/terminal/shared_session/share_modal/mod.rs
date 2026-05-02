@@ -56,7 +56,6 @@ pub enum ShareSessionModalEvent {
         scrollback_type: SharedSessionScrollbackType,
         source: SharedSessionActionSource,
     },
-    Upgrade,
 }
 
 pub fn init(app: &mut AppContext) {
@@ -192,8 +191,8 @@ impl ShareSessionModal {
     fn handle_denied_body_event(&mut self, event: &DeniedBodyEvent, ctx: &mut ViewContext<Self>) {
         match event {
             DeniedBodyEvent::Upgrade => {
+                // Slim fork: no upgrade flow; the "View plans" button just dismisses.
                 self.close(ctx);
-                ctx.emit(ShareSessionModalEvent::Upgrade)
             }
         }
     }

@@ -5216,10 +5216,6 @@ impl Input {
         ctx: &mut ViewContext<Self>,
     ) {
         match prompt_alert {
-            PromptAlertEvent::OpenBillingAndUsagePage => {
-                // Slim fork: BillingAndUsage page is removed; route to Privacy instead.
-                ctx.emit(Event::OpenSettings(SettingsSection::Privacy));
-            }
             PromptAlertEvent::OpenPrivacyPage => {
                 ctx.emit(Event::OpenSettings(SettingsSection::Privacy));
             }
@@ -13736,10 +13732,6 @@ impl Input {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            PromptSuggestionsEvent::OpenBillingAndUsagePage => {
-                // Slim fork: BillingAndUsage page is removed; route to Privacy instead.
-                ctx.emit(Event::OpenSettings(SettingsSection::Privacy))
-            }
             PromptSuggestionsEvent::OpenPrivacyPage => {
                 ctx.emit(Event::OpenSettings(SettingsSection::Privacy))
             }

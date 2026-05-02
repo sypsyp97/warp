@@ -35,7 +35,6 @@ pub enum SharedObjectsCreationDeniedModalAction {
 
 pub enum SharedObjectsCreationDeniedModalEvent {
     Close,
-    TeamSettings,
 }
 
 pub fn init(app: &mut AppContext) {
@@ -172,27 +171,23 @@ impl SharedObjectsCreationDeniedModal {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            SharedObjectsCreationDeniedBodyEvent::Upgrade => match self.team_uid {
-                // If team_uid is set, then open up the upgrade page for the team
-                // directly.
-                Some(team_uid) => {
+            SharedObjectsCreationDeniedBodyEvent::Upgrade => {
+                // Slim fork: no team-settings page; only the team_uid-set branch
+                // is reachable. Opening the upgrade URL is a best-effort no-op
+                // when the user is not on a team.
+                if let Some(team_uid) = self.team_uid {
                     ctx.open_url(UserWorkspaces::upgrade_link_for_team(team_uid).as_str());
                 }
-                // Otherwise redirect them to the team settings page.
-                None => ctx.emit(SharedObjectsCreationDeniedModalEvent::TeamSettings),
-            },
-            SharedObjectsCreationDeniedBodyEvent::ManageBilling => match self.team_uid {
-                // If team_uid is set, then open up the manage billing page for the team
-                // directly. The actual logic that opens the billing portal url in the
-                // browser previously lived in the (now-removed) TeamsPageView.
-                Some(team_uid) => {
+            }
+            SharedObjectsCreationDeniedBodyEvent::ManageBilling => {
+                // Slim fork: no team-settings page. With a team_uid, generate the
+                // billing portal link as before; without one, do nothing.
+                if let Some(team_uid) = self.team_uid {
                     UserWorkspaces::handle(ctx).update(ctx, move |user_workspaces, ctx| {
                         user_workspaces.generate_stripe_billing_portal_link(team_uid, ctx);
                     });
                 }
-                // Otherwise redirect them to the team settings page.
-                None => ctx.emit(SharedObjectsCreationDeniedModalEvent::TeamSettings),
-            },
+            }
         }
     }
 }
