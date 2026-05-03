@@ -517,12 +517,6 @@ fn all_commands() -> Vec<StaticCommand> {
         commands.push(CREATE_DOCKER_SANDBOX);
     }
 
-    if FeatureFlag::CreatingSharedSessions.is_enabled()
-        && FeatureFlag::HOARemoteControl.is_enabled()
-    {
-        commands.push(REMOTE_CONTROL);
-    }
-
     if FeatureFlag::AgentView.is_enabled() {
         commands.push(PROMPTS.clone());
     }
@@ -569,10 +563,6 @@ fn all_commands() -> Vec<StaticCommand> {
         commands.push(PR_COMMENTS);
     }
 
-    if FeatureFlag::CloudMode.is_enabled() && FeatureFlag::CloudModeFromLocalSession.is_enabled() {
-        commands.push(CLOUD_AGENT.clone());
-    }
-
     if FeatureFlag::InlineProfileSelector.is_enabled() {
         commands.push(PROFILE.clone());
     }
@@ -584,10 +574,6 @@ fn all_commands() -> Vec<StaticCommand> {
 
     if FeatureFlag::InlineRepoMenu.is_enabled() && !cfg!(target_family = "wasm") {
         commands.push(OPEN_REPO);
-    }
-
-    if FeatureFlag::Orchestration.is_enabled() {
-        commands.push(ORCHESTRATE.clone());
     }
 
     if FeatureFlag::SettingsFile.is_enabled() && cfg!(feature = "local_fs") {
