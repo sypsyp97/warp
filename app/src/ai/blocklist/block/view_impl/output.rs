@@ -118,7 +118,6 @@ use super::common::{
     STATUS_FOOTER_VERTICAL_PADDING, STATUS_ICON_SIZE_DELTA,
 };
 use super::imported_comments::render_imported_comments;
-use super::orchestration;
 use super::todos::render_todos;
 use super::CONTENT_HORIZONTAL_PADDING;
 use super::{
@@ -718,52 +717,6 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                                 .add_child(render_request_computer_use(props, id, request, app));
                         }
                         AIAgentOutputMessageType::Action(AIAgentAction {
-                            action:
-                                AIAgentActionType::StartAgent {
-                                    version: _,
-                                    name,
-                                    prompt,
-                                    execution_mode,
-                                    lifecycle_subscription: _,
-                                },
-                            id,
-                            ..
-                        }) if FeatureFlag::Orchestration.is_enabled() => {
-                            should_render_footer = false;
-                            should_render_suggestions = false;
-                            output_items.add_child(orchestration::render_start_agent(
-                                props,
-                                id,
-                                name,
-                                prompt,
-                                execution_mode,
-                                &output_message.id,
-                                app,
-                            ));
-                        }
-                        AIAgentOutputMessageType::Action(AIAgentAction {
-                            action:
-                                AIAgentActionType::SendMessageToAgent {
-                                    addresses,
-                                    subject,
-                                    message,
-                                },
-                            id,
-                            ..
-                        }) if FeatureFlag::Orchestration.is_enabled() => {
-                            should_render_footer = false;
-                            should_render_suggestions = false;
-                            output_items.add_child(orchestration::render_send_message(
-                                props,
-                                id,
-                                addresses,
-                                subject,
-                                message,
-                                &output_message.id,
-                                app,
-                            ));
-                        }
-                        AIAgentOutputMessageType::Action(AIAgentAction {
                             action: AIAgentActionType::InsertCodeReviewComments { repo_path, .. },
                             id,
                             ..
@@ -836,18 +789,6 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                                     output_message.id
                                 );
                             }
-                        }
-                        AIAgentOutputMessageType::MessagesReceivedFromAgents { messages }
-                            if FeatureFlag::Orchestration.is_enabled() =>
-                        {
-                            output_items.add_child(
-                                orchestration::render_messages_received_from_agents(
-                                    messages,
-                                    props,
-                                    &output_message.id,
-                                    app,
-                                ),
-                            );
                         }
                         AIAgentOutputMessageType::DebugOutput { text } => {
                             if ChannelState::enable_debug_features() {
