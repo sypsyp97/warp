@@ -56,7 +56,6 @@ use crate::{
     workspaces::user_workspaces::UserWorkspaces,
 };
 use toolbar_item::AgentToolbarItemKind;
-use warp_cli::agent::Harness;
 
 use std::sync::Arc;
 
@@ -80,7 +79,6 @@ use std::time::Duration;
 use tokio::fs;
 
 use warp_core::{
-    context_flag::ContextFlag,
     report_if_error,
     ui::{
         color::{blend::Blend, contrast::MinimumAllowedContrast, ContrastingColor},
@@ -123,7 +121,6 @@ const FAST_FORWARD_OFF_TOOLTIP: &str = "Auto-approve all agent actions for this 
 
 const START_REMOTE_CONTROL_TOOLTIP: &str = "Start remote control";
 
-const CLOUD_MODE_V2_FOOTER_GAP: f32 = 4.;
 
 /// How long to wait after session creation before showing the install chip.
 /// Gives the plugin time to connect and send its `SessionStart` event.
@@ -727,48 +724,6 @@ impl AgentInputFooter {
             .is_some_and(|s| s.as_ref(app).is_menu_open())
     }
 
-    fn should_render_cloud_mode_v2(&self, app: &AppContext) -> bool {
-        FeatureFlag::CloudModeInputV2.is_enabled()
-            && FeatureFlag::CloudMode.is_enabled()
-            && self
-                .ambient_agent_view_model
-                .as_ref(app)
-                .is_configuring_ambient_agent()
-    }
-
-    fn render_cloud_mode_v2_footer(&self, app: &AppContext) -> Box<dyn Element> {
-        let left = Flex::row()
-            .with_main_axis_size(MainAxisSize::Min)
-            .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_spacing(CLOUD_MODE_V2_FOOTER_GAP)
-            .with_child(ChildView::new(&self.environment_selector).finish())
-            .finish();
-
-        let mut right = Flex::row()
-            .with_main_axis_size(MainAxisSize::Min)
-            .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_spacing(CLOUD_MODE_V2_FOOTER_GAP);
-
-        right = right.with_child(ChildView::new(&self.file_button).finish());
-
-        // The V2 model selector is Oz-specific; hide it for other harnesses
-        // until they support model selection.
-        let selected_harness = self.ambient_agent_view_model.as_ref(app).selected_harness();
-        if selected_harness == Harness::Oz {
-            if let Some(model_selector) = self.v2_model_selector.as_ref() {
-                right = right.with_child(ChildView::new(model_selector).finish());
-            }
-        }
-
-        Flex::row()
-            .with_main_axis_size(MainAxisSize::Max)
-            .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
-            .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_child(left)
-            .with_child(right.finish())
-            .finish()
-    }
-
     fn all_display_chips(&self) -> impl Iterator<Item = &ViewHandle<DisplayChip>> {
         self.left_display_chips
             .iter()
@@ -1143,27 +1098,14 @@ impl AgentInputFooter {
                 .then(|| ChildView::new(&self.rich_input_button).finish()),
             AgentToolbarItemKind::FileAttach => Some(ChildView::new(&self.file_button).finish()),
             AgentToolbarItemKind::VoiceInput => None,
-            AgentToolbarItemKind::ShareSession => {
-                let enabled = FeatureFlag::CreatingSharedSessions.is_enabled()
-                    && FeatureFlag::HOARemoteControl.is_enabled()
-                    && ContextFlag::CreateSharedSession.is_enabled();
-                if !enabled {
-                    return None;
-                }
-
-                let button = if shared_status.is_sharer() {
-                    &self.stop_remote_control_button
-                } else {
-                    &self.start_remote_control_button
-                };
-                Some(ChildView::new(button).finish())
-            }
             AgentToolbarItemKind::Settings => Some(ChildView::new(&self.settings_button).finish()),
             // Handled by the available_in() guard above; included for exhaustiveness.
+            // ShareSession is gated on CreatingSharedSessions/HOARemoteControl, both off in slim.
             AgentToolbarItemKind::ModelSelector
             | AgentToolbarItemKind::NLDToggle
             | AgentToolbarItemKind::ContextWindowUsage
-            | AgentToolbarItemKind::FastForwardToggle => None,
+            | AgentToolbarItemKind::FastForwardToggle
+            | AgentToolbarItemKind::ShareSession => None,
         }
     }
 
@@ -1465,27 +1407,15 @@ impl AgentInputFooter {
                         .is_some();
                 has_conversation.then(|| ChildView::new(&self.context_window_button).finish())
             }
-            AgentToolbarItemKind::ShareSession => {
-                let enabled = FeatureFlag::CreatingSharedSessions.is_enabled()
-                    && FeatureFlag::HOARemoteControl.is_enabled()
-                    && ContextFlag::CreateSharedSession.is_enabled();
-                if !enabled {
-                    return None;
-                }
-                let button = if shared_status.is_sharer() {
-                    &self.stop_remote_control_button
-                } else {
-                    &self.start_remote_control_button
-                };
-                Some(ChildView::new(button).finish())
-            }
             AgentToolbarItemKind::FastForwardToggle => FeatureFlag::FastForwardAutoexecuteButton
                 .is_enabled()
                 .then(|| ChildView::new(&self.fast_forward_button).finish()),
             // Handled by the available_in() guard above; included for exhaustiveness.
+            // ShareSession is gated on CreatingSharedSessions/HOARemoteControl, both off in slim.
             AgentToolbarItemKind::FileExplorer
             | AgentToolbarItemKind::RichInput
-            | AgentToolbarItemKind::Settings => None,
+            | AgentToolbarItemKind::Settings
+            | AgentToolbarItemKind::ShareSession => None,
         }
     }
 
@@ -1528,9 +1458,6 @@ impl View for AgentInputFooter {
     }
 
     fn render(&self, app: &warpui::AppContext) -> Box<dyn warpui::Element> {
-        if self.should_render_cloud_mode_v2(app) {
-            return self.render_cloud_mode_v2_footer(app);
-        }
         // When a CLI agent session is active, render the CLI agent toolbar instead.
         if self.is_cli_agent_session_active(app) {
             return self.render_cli_mode_footer(app);
@@ -1546,13 +1473,6 @@ impl View for AgentInputFooter {
             .with_main_axis_alignment(MainAxisAlignment::Start)
             .with_run_spacing(4.)
             .with_spacing(4.);
-
-        let is_ambient_agent = FeatureFlag::CloudMode.is_enabled()
-            && self.ambient_agent_view_model.as_ref(app).is_ambient_agent();
-        if is_ambient_agent {
-            left_buttons =
-                left_buttons.with_child(ChildView::new(&self.environment_selector).finish());
-        }
 
         let terminal_model = self.terminal_model.lock();
         let shared_status = terminal_model.shared_session_status();
