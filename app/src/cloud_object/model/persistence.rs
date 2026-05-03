@@ -31,7 +31,6 @@ use warpui::{AppContext, Entity, ModelContext, SingletonEntity};
 use crate::cloud_object::CloudObject;
 use chrono::{DateTime, Duration, Utc};
 use rand::Rng;
-use warp_core::features::FeatureFlag;
 
 use super::generic_string_model::GenericStringObjectId;
 
@@ -1486,7 +1485,9 @@ impl CloudModel {
                     }
                 }
             }
-            None => !FeatureFlag::SharedWithMe.is_enabled(),
+            // Parent missing from CloudModel + SharedWithMe is off in slim → default to
+            // trashed (mirrors the same back-compat branch in cloud_object/mod.rs).
+            None => true,
         };
 
         cache.insert(uid.to_owned(), result);
