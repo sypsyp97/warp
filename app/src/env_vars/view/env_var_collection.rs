@@ -1,6 +1,5 @@
 use pathfinder_geometry::vector::{vec2f, Vector2F};
 
-use warp_core::features::FeatureFlag;
 use warpui::{
     clipboard::ClipboardContent,
     elements::{
@@ -1213,26 +1212,24 @@ impl EnvVarCollectionView {
                         ),
                     });
 
-                if !FeatureFlag::SharedWithMe.is_enabled() || editability.can_edit() {
-                    row_contents.add_child(
-                        Container::new(
-                            icon_button(
-                                appearance,
-                                Icon::MinusCircle,
-                                false,
-                                variable_editor_row.delete_row_mouse_state_handle.clone(),
-                            )
-                            .build()
-                            .on_click(move |ctx, _, _| {
-                                ctx.dispatch_typed_action(EnvVarCollectionAction::DeleteVariable(
-                                    VariableRowIndex(index),
-                                ))
-                            })
-                            .finish(),
+                row_contents.add_child(
+                    Container::new(
+                        icon_button(
+                            appearance,
+                            Icon::MinusCircle,
+                            false,
+                            variable_editor_row.delete_row_mouse_state_handle.clone(),
                         )
+                        .build()
+                        .on_click(move |ctx, _, _| {
+                            ctx.dispatch_typed_action(EnvVarCollectionAction::DeleteVariable(
+                                VariableRowIndex(index),
+                            ))
+                        })
                         .finish(),
-                    );
-                }
+                    )
+                    .finish(),
+                );
 
                 Container::new(
                     Flex::column()
@@ -1296,16 +1293,12 @@ impl View for EnvVarCollectionView {
         let appearance = Appearance::as_ref(app);
         let theme = appearance.theme();
         let mut content = Flex::column();
-        let access_level = self
-            .active_env_var_collection_data
-            .as_ref(app)
-            .access_level(app);
         let editability = self
             .active_env_var_collection_data
             .as_ref(app)
             .editability(app);
 
-        content.extend(self.render_trash_banner(access_level, app));
+        content.extend(self.render_trash_banner(app));
 
         content.add_child(
             Align::new(
@@ -1344,13 +1337,11 @@ impl View for EnvVarCollectionView {
                 .with_main_axis_size(MainAxisSize::Max)
                 .with_main_axis_alignment(MainAxisAlignment::End)
                 .with_cross_axis_alignment(CrossAxisAlignment::Center);
-            if !FeatureFlag::SharedWithMe.is_enabled() || editability.can_edit() {
-                buttons_row.add_child(
-                    Container::new(self.render_save_button(appearance, app))
-                        .with_margin_left(BUTTON_SPACING)
-                        .finish(),
-                )
-            }
+            buttons_row.add_child(
+                Container::new(self.render_save_button(appearance, app))
+                    .with_margin_left(BUTTON_SPACING)
+                    .finish(),
+            );
 
             content.add_child(
                 Align::new(
@@ -1383,7 +1374,7 @@ impl View for EnvVarCollectionView {
                     .finish(),
             )
             .with_child(
-                Container::new(self.render_variables_section_header(editability, appearance))
+                Container::new(self.render_variables_section_header(appearance))
                     .with_margin_bottom(SECTION_SPACING)
                     .finish(),
             )

@@ -1,6 +1,5 @@
 use pathfinder_color::ColorU;
 use pathfinder_geometry::vector::Vector2F;
-use warp_core::features::FeatureFlag;
 use warpui::{
     elements::{
         Align, ConstrainedBox, Container, CrossAxisAlignment, Empty, Flex, MainAxisAlignment,
@@ -15,7 +14,6 @@ use warpui::{
 };
 
 use crate::{
-    drive::sharing::{ContentEditability, SharingAccessLevel},
     env_vars::{
         active_env_var_collection_data::TrashStatus,
         view::env_var_collection::{EnvVarCollectionAction, EnvVarCollectionView},
@@ -44,11 +42,7 @@ impl EnvVarCollectionView {
             })
     }
 
-    pub(super) fn render_trash_banner(
-        &self,
-        access_level: SharingAccessLevel,
-        app: &AppContext,
-    ) -> Option<Box<dyn Element>> {
+    pub(super) fn render_trash_banner(&self, app: &AppContext) -> Option<Box<dyn Element>> {
         let deleted = match self
             .active_env_var_collection_data
             .as_ref(app)
@@ -106,34 +100,30 @@ impl EnvVarCollectionView {
                 .with_main_axis_size(MainAxisSize::Max)
                 .with_cross_axis_alignment(CrossAxisAlignment::Center);
 
-            if !FeatureFlag::SharedWithMe.is_enabled() || access_level.can_trash() {
-                let ui_builder = appearance.ui_builder().clone();
-                action_row.add_child(
-                    Align::new(
-                        appearance
-                            .ui_builder()
-                            .button(
-                                ButtonVariant::Basic,
-                                self.button_mouse_states.restore_from_trash_button.clone(),
-                            )
-                            .with_tooltip(move || {
-                                ui_builder
-                                    .tool_tip(
-                                        "Restore environment variables from trash".to_string(),
-                                    )
-                                    .build()
-                                    .finish()
-                            })
-                            .with_text_label("Restore".to_string())
-                            .build()
-                            .on_click(|ctx, _, _| {
-                                ctx.dispatch_typed_action(EnvVarCollectionAction::Untrash)
-                            })
-                            .finish(),
-                    )
-                    .finish(),
-                );
-            }
+            let ui_builder = appearance.ui_builder().clone();
+            action_row.add_child(
+                Align::new(
+                    appearance
+                        .ui_builder()
+                        .button(
+                            ButtonVariant::Basic,
+                            self.button_mouse_states.restore_from_trash_button.clone(),
+                        )
+                        .with_tooltip(move || {
+                            ui_builder
+                                .tool_tip("Restore environment variables from trash".to_string())
+                                .build()
+                                .finish()
+                        })
+                        .with_text_label("Restore".to_string())
+                        .build()
+                        .on_click(|ctx, _, _| {
+                            ctx.dispatch_typed_action(EnvVarCollectionAction::Untrash)
+                        })
+                        .finish(),
+                )
+                .finish(),
+            );
 
             action_row.finish()
         };
@@ -154,7 +144,6 @@ impl EnvVarCollectionView {
 
     pub(super) fn render_variables_section_header(
         &self,
-        editability: ContentEditability,
         appearance: &Appearance,
     ) -> Box<dyn Element> {
         let mut variables_section_row = Flex::row()
@@ -178,31 +167,29 @@ impl EnvVarCollectionView {
             .finish(),
         );
 
-        if !FeatureFlag::SharedWithMe.is_enabled() || editability.can_edit() {
-            variables_section_row.add_child(
-                Shrinkable::new(
-                    1.,
-                    Flex::row()
-                        .with_main_axis_alignment(MainAxisAlignment::End)
-                        .with_cross_axis_alignment(CrossAxisAlignment::Center)
-                        .with_child(
-                            icon_button(
-                                appearance,
-                                Icon::Plus,
-                                false,
-                                self.button_mouse_states.add_variable_state.clone(),
-                            )
-                            .build()
-                            .on_click(|ctx, _, _| {
-                                ctx.dispatch_typed_action(EnvVarCollectionAction::AddVariable)
-                            })
-                            .finish(),
+        variables_section_row.add_child(
+            Shrinkable::new(
+                1.,
+                Flex::row()
+                    .with_main_axis_alignment(MainAxisAlignment::End)
+                    .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                    .with_child(
+                        icon_button(
+                            appearance,
+                            Icon::Plus,
+                            false,
+                            self.button_mouse_states.add_variable_state.clone(),
                         )
+                        .build()
+                        .on_click(|ctx, _, _| {
+                            ctx.dispatch_typed_action(EnvVarCollectionAction::AddVariable)
+                        })
                         .finish(),
-                )
-                .finish(),
-            );
-        }
+                    )
+                    .finish(),
+            )
+            .finish(),
+        );
 
         variables_section_row.finish()
     }
