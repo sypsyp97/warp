@@ -167,19 +167,13 @@ impl AgentToolbarItemKind {
 
     /// Default right-side items for the agent view footer.
     pub fn default_right() -> Vec<Self> {
-        let mut items = vec![
+        vec![
             Self::ContextChip(ContextChipKind::AgentPlanAndTodoList),
             Self::ContextWindowUsage,
             Self::ModelSelector,
-        ];
-        if FeatureFlag::CreatingSharedSessions.is_enabled()
-            && FeatureFlag::HOARemoteControl.is_enabled()
-        {
-            items.push(Self::ShareSession);
-        }
-        items.push(Self::VoiceInput);
-        items.push(Self::FileAttach);
-        items
+            Self::VoiceInput,
+            Self::FileAttach,
+        ]
     }
 
     /// All items available for the agent view footer configurator.
@@ -198,11 +192,6 @@ impl AgentToolbarItemKind {
         if FeatureFlag::FastForwardAutoexecuteButton.is_enabled() {
             items.push(Self::FastForwardToggle);
         }
-        if FeatureFlag::CreatingSharedSessions.is_enabled()
-            && FeatureFlag::HOARemoteControl.is_enabled()
-        {
-            items.push(Self::ShareSession);
-        }
         items
     }
 
@@ -212,13 +201,8 @@ impl AgentToolbarItemKind {
             Self::FileAttach,
             Self::VoiceInput,
             Self::ContextChip(ContextChipKind::GitDiffStats),
+            Self::FileExplorer,
         ];
-        if FeatureFlag::CreatingSharedSessions.is_enabled()
-            && FeatureFlag::HOARemoteControl.is_enabled()
-        {
-            items.push(Self::ShareSession);
-        }
-        items.push(Self::FileExplorer);
         if FeatureFlag::CLIAgentRichInput.is_enabled() {
             items.push(Self::RichInput);
         }
@@ -247,11 +231,6 @@ impl AgentToolbarItemKind {
             Self::VoiceInput,
             Self::Settings,
         ]);
-        if FeatureFlag::CreatingSharedSessions.is_enabled()
-            && FeatureFlag::HOARemoteControl.is_enabled()
-        {
-            items.push(Self::ShareSession);
-        }
         items
     }
 
