@@ -169,6 +169,13 @@ impl ShimmeringTextElement {
         let mut overrides = RangeMap::new();
         for (glyph_index, char_index) in glyph_indices_in_order.iter() {
             let intensity = self.intensity_at(*glyph_index, center);
+            // Out-of-band glyphs already paint at base_color (the fallback
+            // passed to `line.paint` below), so skip the lerp + insert.
+            // With the default radius of 6, this short-circuits ~90% of
+            // glyphs in any non-trivial loading message.
+            if intensity == 0.0 {
+                continue;
+            }
             let color = self
                 .base_color
                 .to_f32()
