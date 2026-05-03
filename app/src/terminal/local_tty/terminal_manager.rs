@@ -1191,50 +1191,6 @@ impl TerminalManager {
         );
     }
 
-    /// Streams all historical agent conversations from this terminal to viewers.
-    /// This is called when starting a shared  session mid-conversation so that viewers
-    /// can see all conversation history and properly continue conversations.
-    fn stream_historical_agent_conversations(
-        terminal_view: &ViewHandle<TerminalView>,
-        model: &Arc<FairMutex<TerminalModel>>,
-        ctx: &mut AppContext,
-    ) {
-        // Get all conversations for this terminal view
-        // Any conversation could be continued during session sharing
-        let conversations: Vec<AIConversation> = BlocklistAIHistoryModel::as_ref(ctx)
-            .all_live_conversations_for_terminal_view(terminal_view.id())
-            .filter(|conv| conv.exchange_count() > 0)
-            .cloned()
-            .collect();
-
-        if conversations.is_empty() {
-            return;
-        }
-
-        // Get the sharer's participant id to use for historical conversations
-        let sharer_id = terminal_view
-            .as_ref(ctx)
-            .shared_session_presence_manager()
-            .map(|manager| manager.as_ref(ctx).sharer_id());
-
-        model
-            .lock()
-            .send_agent_conversation_replay_started_for_shared_session();
-
-        // Reconstruct and send all conversations' messages as ResponseEvent objects
-        // Exchanges are sorted chronologically to handle interleaved conversations
-        // Historical events use the original conversation token, so no need to pass forked_from.
-        let events = reconstruct_response_events_from_conversations(&conversations);
-        for event in events {
-            model
-                .lock()
-                .send_agent_response_for_shared_session(&event, sharer_id.clone(), None);
-        }
-        model
-            .lock()
-            .send_agent_conversation_replay_ended_for_shared_session();
-    }
-
     /// Send selected_conversation update to viewers based on current selection.
     fn send_selected_conversation_update_for_sharer(
         session_sharer: &Rc<RefCell<Option<ModelHandle<Network>>>>,
@@ -1470,11 +1426,6 @@ impl TerminalManager {
                         init_input_ops.iter(),
                     );
                 });
-
-                // Stream historical agent conversations so viewers have conversation and task context.
-                if FeatureFlag::AgentSharedSessions.is_enabled() {
-                    Self::stream_historical_agent_conversations(&terminal_view, &model, ctx);
-                }
             }
             NetworkEvent::FailedToCreateSharedSession {
                 reason,
@@ -1560,49 +1511,9 @@ impl TerminalManager {
                     );
                 });
             }
-            NetworkEvent::ControlActionRequested {
-                participant_id,
-                request_id,
-                action,
-            } => {
-                if !FeatureFlag::AgentSharedSessions.is_enabled() {
-                    return;
-                }
-
-                let viewer_is_executor = terminal_view
-                    .as_ref(ctx)
-                    .shared_session_presence_manager()
-                    .and_then(|manager| manager.as_ref(ctx).viewer_role(participant_id))
-                    .map(|role| role.can_execute())
-                    .unwrap_or_else(|| {
-                        log::warn!("Failed to get viewer's role during control action request");
-                        false
-                    });
-
-                if !viewer_is_executor {
-                    network.update(ctx, |network, _ctx| {
-                        network.send_control_action_rejection(
-                            participant_id.clone(),
-                            request_id.clone(),
-                            ControlActionFailureReason::InsufficientPermissions,
-                        );
-                    });
-                    return;
-                };
-
-                match action {
-                    ControlAction::CancelConversation {
-                        server_conversation_token,
-                    } => {
-                        terminal_view.update(ctx, |view, ctx| {
-                            view.ai_controller().update(ctx, |controller, ctx| {
-                                controller
-                                    .handle_shared_session_cancel_action(*server_conversation_token, ctx);
-                            });
-                        });
-                    }
-                }
-            }
+            // AgentSharedSessions is off in slim → control actions are
+            // never honored; ignore the event.
+            NetworkEvent::ControlActionRequested { .. } => {}
             NetworkEvent::ParticipantListUpdated(participant_list) => {
                 let was_viewer_driven_sizing_eligible = terminal_view
                     .update(ctx, |view, ctx| view.is_viewer_driven_sizing_eligible(true, ctx));
@@ -1811,107 +1722,9 @@ impl TerminalManager {
                     view.write_viewer_bytes_to_pty(bytes.clone(), ctx);
                 });
             }
-            NetworkEvent::AgentPromptRequested {
-                id,
-                participant_id,
-                request,
-            } => {
-                if !FeatureFlag::AgentSharedSessions.is_enabled() {
-                    return;
-                }
-
-                // Validate permissions for the participant that initiated the prompt.
-                // For viewers, we require Executor role. For the sharer, we allow the prompt
-                // even if they are not present in the viewer list.
-                let mut is_sharer = false;
-                let viewer_role_opt = terminal_view
-                    .as_ref(ctx)
-                    .shared_session_presence_manager()
-                    .and_then(|manager| {
-                        let manager_ref = manager.as_ref(ctx);
-                        if manager_ref.sharer_id() == *participant_id {
-                            is_sharer = true;
-                            None
-                        } else {
-                            manager_ref.viewer_role(participant_id)
-                        }
-                    });
-
-                if !is_sharer {
-                    let Some(viewer_role) = viewer_role_opt else {
-                        log::warn!(
-                            "Failed to get viewer's role during agent prompt request for participant_id={participant_id} (not sharer)"
-                        );
-                        network.update(ctx, |network, _ctx| {
-                            network.send_agent_prompt_rejection(
-                                id.clone(),
-                                participant_id.clone(),
-                                AgentPromptFailureReason::InsufficientPermissions,
-                            );
-                        });
-                        return;
-                    };
-
-                    if !viewer_role.can_execute() {
-                        network.update(ctx, |network, _ctx| {
-                            network.send_agent_prompt_rejection(
-                                id.clone(),
-                                participant_id.clone(),
-                                AgentPromptFailureReason::InsufficientPermissions,
-                            );
-                        });
-                        return;
-                    }
-
-                    // Reject the prompt if AI is disabled on the sharer's machine.
-                    // TODO(APP-2894): We should create a failure variant that better matches the error.
-                    if !crate::settings::ai::AISettings::as_ref(ctx).is_any_ai_enabled(ctx) {
-                        network.update(ctx, |network, _ctx| {
-                            network.send_agent_prompt_rejection(
-                                id.clone(),
-                                participant_id.clone(),
-                                AgentPromptFailureReason::InvalidConversation,
-                            );
-                        });
-                        return;
-                    }
-                }
-
-                // If a third-party CLI harness (e.g. Claude Code) is running, write
-                // the follow-up prompt directly to the PTY. The CLI handles it as
-                // interactive input. 
-                let terminal_view_id = terminal_view.id();
-                let has_active_cli_agent = CLIAgentSessionsModel::as_ref(ctx)
-                    .session(terminal_view_id)
-                    .is_some();
-                if has_active_cli_agent {
-                    // Reuse the rich input submit pipeline so agent-specific
-                    // strategies are applied. Bypasses the rich-input-UI side effects 
-  					// (telemetry, draft clear, editor buffer clear, pending-image consumption).
-                    terminal_view.update(ctx, |view, ctx| {
-                        view.submit_text_to_cli_agent_pty(request.prompt.clone(), ctx);
-                    });
-                    return;
-                }
-
-                // Execute the agent prompt in the Oz-harness case
-                terminal_view.update(ctx, |view, ctx| {
-                    // Clear the sharer's input (as the prompt in the input is now being executed)
-                    view.input().update(ctx, |input, ctx| {
-                        input.unfreeze_and_clear_agent_input(ctx);
-                    });
-
-                    view.ai_controller().update(ctx, |ai_controller, ctx| {
-                        ai_controller.execute_agent_prompt_for_shared_session(
-                            request.prompt.clone(),
-                            request.server_conversation_token,
-                            request.attachments.clone(),
-                            participant_id.clone(),
-                            ctx,
-                        );
-                    });
-                });
-            }
+            // AgentSharedSessions is off in slim → agent prompts from
+            // viewers are never accepted; ignore the event.
+            NetworkEvent::AgentPromptRequested { .. } => {}
             NetworkEvent::LinkAccessLevelUpdateResponse { response } => {
                 terminal_view.update(ctx, |view, ctx| match response {
                     LinkAccessLevelUpdateResponse::Ok { role } => {
@@ -2147,14 +1960,10 @@ impl TerminalManager {
         let session_sharer = shared_session_model.clone();
         let model = model.clone();
 
-        let is_ambient_agent = FeatureFlag::AgentSharedSessions.is_enabled()
-            && AppExecutionMode::as_ref(ctx).is_autonomous();
+        // AgentSharedSessions is off in slim → no autonomous shared sessions,
+        // so the lifetime is always Ephemeral.
         // TODO(ben): This is a very suboptimal way of exposing this; lifetime should be a user-visible option.
-        let session_lifetime = if is_ambient_agent {
-            Lifetime::Lingering
-        } else {
-            Lifetime::Ephemeral
-        };
+        let session_lifetime = Lifetime::Ephemeral;
 
         // Clone before the subscribe_to_view closure moves the original.
         let sharer_remote_update_guard_for_cli = sharer_remote_update_guard.clone();
