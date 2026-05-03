@@ -619,21 +619,15 @@ impl ConversationOrTask<'_> {
         }
     }
 
-    /// Returns the preferred link type based on cloud conversations and session state.
+    /// Returns the preferred link type based on session state.
     fn link_preference(&self) -> LinkPreference {
         match self {
             ConversationOrTask::Task(task) => {
-                // Always open session link if there's a live session.
-                // Without cloud conversations, also open session link as long as it's not expired.
-                // With cloud conversations, even if the link is not expired, we load conversation
-                // data from graphql as long as the session isn't live.
+                // Open the session link as long as the session isn't expired.
                 if task.is_sandbox_running
-                    || (!FeatureFlag::CloudConversations.is_enabled()
-                        && self.get_session_status() != Some(SessionStatus::Expired))
+                    || self.get_session_status() != Some(SessionStatus::Expired)
                 {
                     LinkPreference::Session
-                } else if FeatureFlag::CloudConversations.is_enabled() {
-                    LinkPreference::Conversation
                 } else {
                     LinkPreference::None
                 }
@@ -673,20 +667,6 @@ impl ConversationOrTask<'_> {
     }
 
     pub fn get_session_status(&self) -> Option<SessionStatus> {
-        // With cloud conversations, as long as the session link is populated, it is available
-        // If it's not, it's unavailable (no live session link and no conversation data in GCS)
-        if FeatureFlag::CloudConversations.is_enabled() {
-            return match self {
-                ConversationOrTask::Task(task) => {
-                    if task.session_link.is_some() {
-                        Some(SessionStatus::Available)
-                    } else {
-                        Some(SessionStatus::Unavailable)
-                    }
-                }
-                ConversationOrTask::Conversation(_) => None,
-            };
-        }
         match self {
             ConversationOrTask::Task(task) => {
                 if task.session_id.is_some() {
