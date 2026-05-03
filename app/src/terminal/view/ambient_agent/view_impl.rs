@@ -214,13 +214,8 @@ impl TerminalView {
                 ctx.notify();
             }
             AmbientAgentViewModelEvent::ShowAICreditModal => {
-                if FeatureFlag::CloudMode.is_enabled()
-                    && self.ambient_agent_view_model.as_ref(ctx).is_ambient_agent()
-                    && !self.model.lock().is_shared_ambient_agent_session()
-                {
-                    self.show_out_of_credits_modal(ctx);
-                }
-
+                // CloudMode is off in slim → no ambient-agent session can
+                // surface a credit modal; just re-render.
                 ctx.notify();
             }
             AmbientAgentViewModelEvent::NeedsGithubAuth => {
@@ -534,42 +529,12 @@ impl TerminalView {
 
     /// Enter cloud mode from this existing session with the given initial prompt.
     ///
-    /// If called from fullscreen agent view, this defers the cloud mode start until after the
-    /// agent view has exited so the resulting rich content is scoped to the terminal-level.
+    /// CloudMode + CloudModeFromLocalSession are both off in slim, so this is a no-op.
     pub(in crate::terminal::view) fn enter_cloud_mode_from_session(
         &mut self,
-        initial_prompt: Option<String>,
-        ctx: &mut ViewContext<Self>,
+        _initial_prompt: Option<String>,
+        _ctx: &mut ViewContext<Self>,
     ) {
-        if !(FeatureFlag::CloudMode.is_enabled()
-            && FeatureFlag::CloudModeFromLocalSession.is_enabled())
-        {
-            return;
-        }
-
-        // If cloud mode is started from fullscreen agent view, we must ensure the resulting
-        // rich content (ambient agent entry block) is scoped to the terminal-level.
-        if FeatureFlag::AgentView.is_enabled()
-            && self.agent_view_controller.as_ref(ctx).is_fullscreen()
-        {
-            let prompt = initial_prompt.clone();
-            self.set_pending_cloud_mode_start_callback(
-                Box::new(move |view, ctx| {
-                    view.start_cloud_mode(None, prompt, ctx);
-                }),
-                ctx,
-            );
-
-            // Starting cloud mode from agent view is analogous to starting a new agent
-            // conversation: we exit without confirmation and continue after ExitedAgentView.
-            self.agent_view_controller.update(ctx, |controller, ctx| {
-                controller.exit_agent_view_without_confirmation(ctx);
-            });
-
-            return;
-        }
-
-        self.start_cloud_mode(None, initial_prompt, ctx);
     }
 
     /// Start a cloud mode session nested under this one.
