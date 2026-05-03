@@ -2265,7 +2265,6 @@ struct TerminalViewMouseStates {
 
     // Mouse state for the pane header ambient agent indicator tooltip.
     ambient_agent_indicator_mouse_handle: MouseStateHandle,
-    parent_conversation_header_link: MouseStateHandle,
 }
 
 /// Where content was routed when sent to a CLI agent.

@@ -259,11 +259,6 @@ impl AmbientAgentViewModel {
         FeatureFlag::AgentHarness.is_enabled() && self.harness != Harness::Oz
     }
 
-    /// Whether the harness CLI has started running. Only meaningful for non-oz runs.
-    pub(super) fn harness_command_started(&self) -> bool {
-        self.harness_command_started
-    }
-
     /// Marks the harness CLI as started and emits `HarnessCommandStarted`.
     /// Idempotent: subsequent calls after the first are no-ops and do not re-emit.
     pub(super) fn mark_harness_command_started(&mut self, ctx: &mut ModelContext<Self>) {
