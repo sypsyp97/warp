@@ -23,7 +23,7 @@ use warpui::SingletonEntity;
 mod convert;
 mod model;
 
-pub use model::{Event as ServerExperimentsEvent, ServerExperiments};
+pub use model::ServerExperiments;
 
 /// The known server-side experiments.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]

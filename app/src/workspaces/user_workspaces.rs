@@ -13,7 +13,7 @@ use crate::{
     },
     report_error,
     server::{
-        experiments::{ServerExperiment, ServerExperiments, ServerExperimentsEvent},
+        experiments::ServerExperiment,
         ids::ServerId,
         server_api::{team::TeamClient, workspace::WorkspaceClient},
     },
@@ -136,9 +136,9 @@ impl UserWorkspaces {
         cached_workspaces: Vec<Workspace>,
         _ctx: &mut ModelContext<Self>,
     ) -> Self {
-        // In tests, avoid subscribing to [`ServerExperiments`] because it
-        // requires us to register that singleton along with _its_ dependencies
-        // for all tests that use [`UserWorkspaces`] (a lot of them do).
+        // In tests, skip the model subscriptions in `new()` to avoid having
+        // to register CodeSettings / AISettings singletons (and their
+        // dependencies) for every test that touches [`UserWorkspaces`].
         Self {
             current_workspace_uid: cached_workspaces.first().map(|w| w.uid).into(),
             workspaces: cached_workspaces.into(),
@@ -165,11 +165,6 @@ impl UserWorkspaces {
         current_workspace_uid: Option<WorkspaceUid>,
         ctx: &mut ModelContext<Self>,
     ) -> Self {
-        ctx.subscribe_to_model(&ServerExperiments::handle(ctx), |me, event, ctx| {
-            let ServerExperimentsEvent::ExperimentsUpdated = event;
-            me.update_session_sharing_enablement(ctx);
-        });
-
         ctx.subscribe_to_model(&CodeSettings::handle(ctx), |_, code_settings_event, ctx| {
             match code_settings_event {
                 CodeSettingsChangedEvent::CodebaseContextEnabled { .. }
@@ -527,15 +522,9 @@ impl UserWorkspaces {
 
     // Returns a Vec of the user's active spaces, based on their
     // team membership. Includes the "Personal Space" by default.
-    pub fn all_user_spaces(&self, ctx: &AppContext) -> Vec<Space> {
+    pub fn all_user_spaces(&self, _ctx: &AppContext) -> Vec<Space> {
         let mut spaces = Vec::new();
         spaces.extend(self.team_spaces().iter());
-
-        if FeatureFlag::SharedWithMe.is_enabled()
-            && CloudModel::as_ref(ctx).has_directly_shared_objects(self, ctx)
-        {
-            spaces.push(Space::Shared);
-        }
         spaces.push(Space::Personal);
 
         spaces
@@ -561,30 +550,10 @@ impl UserWorkspaces {
     }
 
     // Maps an [`Owner`] into a [`Space`], based on the user's team memberships.
-    // This is always possible, as unknown owners imply the shared space.
-    pub fn owner_to_space(&self, owner: Owner, ctx: &AppContext) -> Space {
+    pub fn owner_to_space(&self, owner: Owner, _ctx: &AppContext) -> Space {
         match owner {
-            Owner::User { user_uid } => {
-                if !FeatureFlag::SharedWithMe.is_enabled() {
-                    return Space::Personal;
-                }
-
-                let current_user = AuthStateProvider::as_ref(ctx).get().user_id();
-                if Some(user_uid) == current_user {
-                    Space::Personal
-                } else {
-                    Space::Shared
-                }
-            }
-            Owner::Team { team_uid } => {
-                if !FeatureFlag::SharedWithMe.is_enabled()
-                    || self.team_from_uid_across_all_workspaces(team_uid).is_some()
-                {
-                    Space::Team { team_uid }
-                } else {
-                    Space::Shared
-                }
-            }
+            Owner::User { .. } => Space::Personal,
+            Owner::Team { team_uid } => Space::Team { team_uid },
         }
     }
 
@@ -648,10 +617,6 @@ impl UserWorkspaces {
     }
 
     fn notify_and_emit_teams_changed(&self, ctx: &mut ModelContext<Self>) {
-        // Update session-sharing enablement since it depends on what teams the user
-        // is part of.
-        self.update_session_sharing_enablement(ctx);
-
         // PrivacySettings can't observe UserWorkspaces for updates, as it's initialized too early in
         // the app initialization flow. So, we update it manually whenever teams data changes.
         PrivacySettings::handle(ctx).update(ctx, |settings, ctx| {
@@ -1388,28 +1353,6 @@ impl UserWorkspaces {
             .unwrap_or_default()
     }
 
-    /// Updates whether or not session sharing is enabled based on the current team's tier policy.
-    fn update_session_sharing_enablement(&self, ctx: &AppContext) {
-        if cfg!(any(test, feature = "integration_tests")) {
-            return;
-        }
-
-        // If we have experiment state to unconditionally enable / disable the feature,
-        // then we defer to that.
-        let server_experiments = ServerExperiments::as_ref(ctx);
-        if server_experiments.is_experiment_enabled(&ServerExperiment::SessionSharingControl)
-            || server_experiments.is_experiment_enabled(&ServerExperiment::SessionSharingExperiment)
-        {
-            return;
-        }
-
-        let is_session_sharing_enabled_via_tier_policy = self
-            .current_team()
-            .and_then(|t| t.billing_metadata.tier.session_sharing_policy)
-            .map(|policy| policy.is_enabled)
-            .unwrap_or(true);
-        FeatureFlag::CreatingSharedSessions.set_enabled(is_session_sharing_enabled_via_tier_policy);
-    }
 }
 
 #[cfg(test)]
