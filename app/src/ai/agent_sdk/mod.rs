@@ -73,15 +73,12 @@ use warp_cli::OZ_HARNESS_ENV;
 
 mod admin;
 mod agent_config;
-mod ambient;
 mod artifact;
 pub(crate) mod artifact_upload;
 mod common;
 mod config_file;
 pub(crate) mod driver;
 mod environment;
-mod federate;
-mod harness_support;
 #[cfg(not(target_family = "wasm"))]
 mod integration;
 #[cfg(not(target_family = "wasm"))]
@@ -94,8 +91,6 @@ pub mod output;
 mod profiles;
 mod provider;
 pub(crate) mod retry;
-mod schedule;
-mod secret;
 mod telemetry;
 #[cfg(test)]
 mod test_support;
