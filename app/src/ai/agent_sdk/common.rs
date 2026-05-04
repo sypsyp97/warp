@@ -8,7 +8,7 @@ use std::time::Duration;
 use futures::TryFutureExt;
 use inquire::{InquireError, Select};
 use warp_cli::agent::Harness;
-use warp_cli::environment::{EnvironmentCreateArgs, EnvironmentUpdateArgs};
+use warp_cli::environment::EnvironmentCreateArgs;
 use warpui::r#async::FutureExt;
 use warpui::{AppContext, GetSingletonModelHandle, SingletonEntity as _, UpdateModel};
 
@@ -17,14 +17,11 @@ use crate::ai::agent_sdk::driver::{AgentDriverError, WARP_DRIVE_SYNC_TIMEOUT};
 use crate::ai::ambient_agents::AmbientAgentTaskId;
 use crate::ai::cloud_environments::CloudAmbientAgentEnvironment;
 use crate::ai::llms::{LLMId, LLMPreferences};
-use crate::auth::auth_state::AuthStateProvider;
-use crate::cloud_object::{CloudObject, Owner};
+use crate::cloud_object::CloudObject;
 use crate::server::cloud_objects::update_manager::UpdateManager;
 use crate::server::ids::{ServerId, SyncId};
 use crate::server::server_api::ai::AIClient;
-use crate::server::server_api::ServerApiProvider;
 use crate::workspaces::update_manager::TeamUpdateManager;
-use crate::workspaces::user_workspaces::UserWorkspaces;
 
 /// How long to wait for workspace metadata to refresh.
 pub const WORKSPACE_METADATA_REFRESH_TIMEOUT: Duration = Duration::from_secs(10);
@@ -62,52 +59,6 @@ pub(super) fn parse_ambient_task_id(
     run_id
         .parse()
         .map_err(|err| anyhow::anyhow!("{error_prefix} '{run_id}': {err}"))
-}
-
-pub(super) fn set_ambient_task_context_from_run_id(
-    ctx: &AppContext,
-    run_id: &str,
-) -> anyhow::Result<AmbientAgentTaskId> {
-    let task_id = parse_ambient_task_id(run_id, "Invalid run ID")?;
-    ServerApiProvider::handle(ctx)
-        .as_ref(ctx)
-        .get()
-        .set_ambient_agent_task_id(Some(task_id));
-    Ok(task_id)
-}
-
-/// Resolve the owner of a new cloud object. This resolution is based on the CLI `--team` and `--personal` flags.
-///
-/// If `team_flag` is true, attempts to get the current team UID (errors if not on a team).
-/// If `user_flag` is true, gets the current user's UID.
-/// Otherwise, defaults to team if available, falling back to user.
-pub fn resolve_owner(team_flag: bool, user_flag: bool, ctx: &AppContext) -> anyhow::Result<Owner> {
-    if team_flag {
-        let team_id = UserWorkspaces::as_ref(ctx)
-            .current_team_uid()
-            .ok_or_else(|| anyhow::anyhow!("User is not on a team"))?;
-        return Ok(Owner::Team { team_uid: team_id });
-    }
-
-    if user_flag {
-        let user_id = AuthStateProvider::as_ref(ctx)
-            .get()
-            .user_id()
-            .ok_or_else(|| anyhow::anyhow!("User should be logged in"))?;
-        return Ok(Owner::User { user_uid: user_id });
-    }
-
-    // Default: try team first, fall back to user
-    if let Some(team_uid) = UserWorkspaces::as_ref(ctx).current_team_uid() {
-        return Ok(Owner::Team { team_uid });
-    }
-
-    log::warn!("Tried to default to creating team object, team could not be found.");
-    let user_id = AuthStateProvider::as_ref(ctx)
-        .get()
-        .user_id()
-        .ok_or_else(|| anyhow::anyhow!("User should be logged in"))?;
-    Ok(Owner::User { user_uid: user_id })
 }
 
 /// Refresh workspace metadata before executing an operation.
@@ -178,15 +129,6 @@ pub(super) async fn fetch_and_validate_conversation_harness(
     }
 
     Ok(metadata)
-}
-
-/// Format an object owner for display in the CLI.
-pub fn format_owner(owner: &Owner) -> &'static str {
-    // TODO: For potentially-shared objects, consider looking up the particular user/team name.
-    match owner {
-        Owner::User { .. } => "Personal",
-        Owner::Team { .. } => "Team",
-    }
 }
 
 /// An error resolving an agent option, which we may have prompted the user for.
@@ -274,22 +216,6 @@ Without an environment, the agent will not be able to access private repositorie
                     "Error selecting environment: {err}"
                 ))),
             }
-        }
-    }
-
-    /// Resolve the environment to use when updating an agent integration. If the user did not
-    /// request any changes to the environment, this returns `Ok(None)`.
-    /// Warp Drive *must* have been synced first.
-    pub fn resolve_for_update(
-        args: EnvironmentUpdateArgs,
-        ctx: &AppContext,
-    ) -> Result<Option<Self>, ResolveConfigurationError> {
-        if args.remove_environment {
-            Ok(Some(EnvironmentChoice::None))
-        } else if let Some(id) = args.environment {
-            Self::get_by_id(id, ctx).map(Some)
-        } else {
-            Ok(None)
         }
     }
 
