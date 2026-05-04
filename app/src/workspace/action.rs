@@ -140,7 +140,6 @@ pub enum WorkspaceAction {
         source: AddTabWithShellSource,
     },
     AddGetStartedTab,
-    AddAmbientAgentTab,
     /// Add a new tab that immediately enters agent view with a new conversation.
     AddAgentTab,
     /// Add a new tab running a local Docker sandbox via `sbx`.
@@ -501,12 +500,6 @@ pub enum WorkspaceAction {
     ToggleGlobalSearch,
     OpenGlobalSearch,
     ToggleConversationListView,
-    /// Open the Oz Launch Modal (for debugging)
-    #[cfg(debug_assertions)]
-    OpenOzLaunchModal,
-    /// Reset the Oz launch modal dismissed state (for debugging)
-    #[cfg(debug_assertions)]
-    ResetOzLaunchModalState,
     /// Open the OpenWarp Launch Modal (for debugging)
     #[cfg(debug_assertions)]
     OpenOpenWarpLaunchModal,
@@ -660,7 +653,6 @@ impl WorkspaceAction {
             | AddTabWithShell { .. }
             | AddGetStartedTab
             | AddAgentTab
-            | AddAmbientAgentTab
             | AddDockerSandboxTab
             | AddWindow
             | AddWindowWithShell { .. }
@@ -841,9 +833,7 @@ impl WorkspaceAction {
             #[cfg(target_family = "wasm")]
             ToggleConversationTranscriptDetailsPanel => false,
             #[cfg(debug_assertions)]
-            OpenOzLaunchModal
-            | ResetOzLaunchModalState
-            | OpenOpenWarpLaunchModal
+            OpenOpenWarpLaunchModal
             | ResetOpenWarpLaunchModalState
             | InstallOpenCodeWarpPlugin
             | UseLocalOpenCodeWarpPlugin => false,

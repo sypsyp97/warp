@@ -42,8 +42,6 @@ pub enum AgentManagementTelemetryEvent {
     ViewToggled { is_open: bool },
     /// User spawned a new local agent
     SpawnNewLocalAgent,
-    /// User spawned a new cloud agent
-    SpawnNewCloudAgent,
     /// User opened the agent type selector modal
     AgentTypeSelectorOpened,
     /// User opened a conversation
@@ -103,7 +101,6 @@ impl TelemetryEvent for AgentManagementTelemetryEvent {
                 Some(json!({ "is_open": is_open }))
             }
             AgentManagementTelemetryEvent::SpawnNewLocalAgent => None,
-            AgentManagementTelemetryEvent::SpawnNewCloudAgent => None,
             AgentManagementTelemetryEvent::AgentTypeSelectorOpened => None,
             AgentManagementTelemetryEvent::ConversationOpened {
                 conversation_id,
@@ -186,7 +183,6 @@ impl TelemetryEventDesc for AgentManagementTelemetryEventDiscriminants {
         match self {
             Self::ViewToggled => "AgentManagement.ViewToggled",
             Self::SpawnNewLocalAgent => "AgentManagement.SpawnNewLocalAgent",
-            Self::SpawnNewCloudAgent => "AgentManagement.SpawnNewCloudAgent",
             Self::AgentTypeSelectorOpened => "AgentManagement.AgentTypeSelectorOpened",
             Self::ConversationOpened => "AgentManagement.ConversationOpened",
             Self::CloudRunOpened => "AgentManagement.CloudRunOpened",
@@ -211,7 +207,6 @@ impl TelemetryEventDesc for AgentManagementTelemetryEventDiscriminants {
         match self {
             Self::ViewToggled => "User toggled the agent management view open or closed",
             Self::SpawnNewLocalAgent => "User spawned a new local agent from agent management",
-            Self::SpawnNewCloudAgent => "User spawned a new cloud agent from agent management",
             Self::AgentTypeSelectorOpened => {
                 "User opened the agent type selector from agent management"
             }

@@ -1335,11 +1335,7 @@ impl AgentManagementView {
                 self.is_agent_type_selector_open = false;
                 match agent_type {
                     AgentType::Cloud => {
-                        send_telemetry_from_ctx!(
-                            AgentManagementTelemetryEvent::SpawnNewCloudAgent,
-                            ctx
-                        );
-                        ctx.dispatch_typed_action(&WorkspaceAction::AddAmbientAgentTab);
+                        // Cloud agents are not supported in slim builds.
                     }
                     AgentType::Local => {
                         send_telemetry_from_ctx!(

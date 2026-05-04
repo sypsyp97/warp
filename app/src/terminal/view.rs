@@ -11592,7 +11592,6 @@ impl TerminalView {
         let auth_state = AuthStateProvider::as_ref(ctx).get();
         let is_onboarded = auth_state.is_onboarded().unwrap_or(true);
         let should_show_onboarding = FeatureFlag::AgentOnboarding.is_enabled() && !is_onboarded;
-        let is_launch_modal_open = OneTimeModalModel::as_ref(ctx).is_oz_launch_modal_open();
 
         let has_plugin_instructions_block = self.rich_content_views.iter().any(|rc| {
             matches!(
@@ -11606,7 +11605,6 @@ impl TerminalView {
             && !self.model.lock().block_list().is_restored_session()
             && !should_show_onboarding
             && self.onboarding_callout_view.is_none()
-            && !is_launch_modal_open
             && !is_subshell_or_ssh
             && !has_plugin_instructions_block
         {
