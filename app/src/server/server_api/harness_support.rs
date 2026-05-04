@@ -12,7 +12,6 @@ use super::ServerApi;
 use crate::ai::agent::conversation::AIConversationId;
 #[cfg(not(target_family = "wasm"))]
 use crate::ai::agent_sdk::retry::with_bounded_retry;
-use crate::ai::artifacts::Artifact;
 
 /// A presigned upload target returned by the server.
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -94,22 +93,6 @@ pub struct ResolvedHarnessPrompt {
     pub resumption_prompt: Option<String>,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct ReportArtifactResponse {
-    pub artifact_uid: String,
-}
-
-#[derive(serde::Serialize)]
-struct NotifyUserRequest {
-    message: String,
-}
-
-#[derive(serde::Serialize)]
-struct FinishTaskRequest {
-    success: bool,
-    summary: String,
-}
-
 /// Trait for API endpoints used to support third-party agent harnesses in Oz.
 #[cfg_attr(test, automock)]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
@@ -132,16 +115,6 @@ pub trait HarnessSupportClient: 'static + Send + Sync {
 
     /// Resolve the prompt for a third-party harness run for a task stored on the server.
     async fn resolve_prompt(&self, request: ResolvePromptRequest) -> Result<ResolvedHarnessPrompt>;
-
-    /// Report an artifact created by a third-party harness back to the Oz platform.
-    async fn report_artifact(&self, artifact: &Artifact) -> Result<ReportArtifactResponse>;
-
-    /// Send a progress notification to the task's originating platform.
-    async fn notify_user(&self, message: &str) -> Result<()>;
-
-    /// Report task completion or failure. The server derives PR links/branches from
-    /// artifacts already reported via `report_artifact`.
-    async fn finish_task(&self, success: bool, summary: &str) -> Result<()>;
 
     /// Get presigned upload targets for a workspace state snapshot.
     ///
@@ -214,32 +187,6 @@ impl HarnessSupportClient for ServerApi {
     async fn resolve_prompt(&self, request: ResolvePromptRequest) -> Result<ResolvedHarnessPrompt> {
         self.post_public_api("harness-support/resolve-prompt", &request)
             .await
-    }
-
-    async fn report_artifact(&self, artifact: &Artifact) -> Result<ReportArtifactResponse> {
-        self.post_public_api("harness-support/report-artifact", artifact)
-            .await
-    }
-
-    async fn notify_user(&self, message: &str) -> Result<()> {
-        self.post_public_api_unit(
-            "harness-support/notify-user",
-            &NotifyUserRequest {
-                message: message.to_string(),
-            },
-        )
-        .await
-    }
-
-    async fn finish_task(&self, success: bool, summary: &str) -> Result<()> {
-        self.post_public_api_unit(
-            "harness-support/finish-task",
-            &FinishTaskRequest {
-                success,
-                summary: summary.to_string(),
-            },
-        )
-        .await
     }
 
     async fn get_snapshot_upload_targets(

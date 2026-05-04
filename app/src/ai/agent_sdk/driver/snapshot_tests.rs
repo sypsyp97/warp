@@ -12,10 +12,7 @@ use tokio::runtime::Runtime;
 use super::*;
 use crate::ai::agent::conversation::AIConversationId;
 use crate::ai::agent_sdk::test_support::build_test_http_client;
-use crate::ai::artifacts::Artifact;
-use crate::server::server_api::harness_support::{
-    ReportArtifactResponse, ResolvePromptRequest, ResolvedHarnessPrompt,
-};
+use crate::server::server_api::harness_support::{ResolvePromptRequest, ResolvedHarnessPrompt};
 
 // ------------------------------------------------------------------------------------------------
 // End-to-end snapshot upload tests.
@@ -97,18 +94,6 @@ impl HarnessSupportClient for TestClient {
         &self,
         _request: ResolvePromptRequest,
     ) -> Result<ResolvedHarnessPrompt> {
-        unimplemented!("not used by upload_snapshot_from_declarations_file")
-    }
-
-    async fn report_artifact(&self, _artifact: &Artifact) -> Result<ReportArtifactResponse> {
-        unimplemented!("not used by upload_snapshot_from_declarations_file")
-    }
-
-    async fn notify_user(&self, _message: &str) -> Result<()> {
-        unimplemented!("not used by upload_snapshot_from_declarations_file")
-    }
-
-    async fn finish_task(&self, _success: bool, _summary: &str) -> Result<()> {
         unimplemented!("not used by upload_snapshot_from_declarations_file")
     }
 
