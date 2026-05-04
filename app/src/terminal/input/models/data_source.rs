@@ -1,14 +1,12 @@
 use fuzzy_match::{match_indices_case_insensitive, FuzzyMatchResult};
 use itertools::Itertools;
-use markdown_parser::{FormattedText, FormattedTextFragment, FormattedTextLine};
 use ordered_float::OrderedFloat;
 use warp_core::ui::appearance::Appearance;
 use warp_core::ui::icons::Icon;
 use warp_core::ui::theme::color::internal_colors;
 use warp_core::ui::theme::Fill;
 use warpui::elements::{
-    ConstrainedBox, Container, CornerRadius, FormattedTextElement, Highlight, HighlightedHyperlink,
-    MouseStateHandle, Radius, Text,
+    ConstrainedBox, Container, CornerRadius, Highlight, MouseStateHandle, Radius, Text,
 };
 use warpui::fonts::{Properties, Style, Weight};
 use warpui::platform::Cursor;
@@ -21,7 +19,6 @@ use crate::ai::llms::{
     is_using_api_key_for_provider, DisableReason, LLMId, LLMInfo, LLMPreferences, LLMProvider,
     LLMSpec,
 };
-use crate::auth::AuthStateProvider;
 use crate::features::FeatureFlag;
 use crate::search::data_source::{Query, QueryFilter, QueryResult};
 use crate::search::mixer::DataSourceRunErrorWrapper;
@@ -34,7 +31,6 @@ use crate::terminal::input::inline_menu::{
 use crate::terminal::input::inline_menu::{styles as inline_styles, DetailsRenderConfig};
 use crate::terminal::input::message_bar::{Message, MessageItem};
 use crate::workspace::WorkspaceAction;
-use crate::workspaces::user_workspaces::UserWorkspaces;
 use warpui::keymap::Keystroke;
 use warpui::platform::OperatingSystem;
 
@@ -222,12 +218,10 @@ struct ModelSearchItem {
 }
 
 impl ModelSearchItem {
-    fn new(llm: &LLMInfo, active_llm_id: &LLMId, app: &AppContext) -> Self {
-        // If the model requires an upgrade but the user already has a BYOK key
-        // for this provider, treat it as enabled by clearing the disable reason.
-        let disable_reason = if llm.disable_reason == Some(DisableReason::RequiresUpgrade)
-            && is_using_api_key_for_provider(&llm.provider, app)
-        {
+    fn new(llm: &LLMInfo, active_llm_id: &LLMId, _app: &AppContext) -> Self {
+        // Slim: never gate models on RequiresUpgrade — users should configure
+        // their own provider via Settings → AI → BYO LLM Provider instead.
+        let disable_reason = if llm.disable_reason == Some(DisableReason::RequiresUpgrade) {
             None
         } else {
             llm.disable_reason.clone()
@@ -471,78 +465,9 @@ impl SearchItem for ModelSearchItem {
             app,
         );
 
-        let mut column = Flex::column()
+        let column = Flex::column()
             .with_child(Container::new(header).with_margin_bottom(12.).finish())
             .with_child(scores);
-
-        if self.disable_reason.as_ref() == Some(&DisableReason::RequiresUpgrade) {
-            let upgrade_url = if let Some(team) = UserWorkspaces::as_ref(app).current_team() {
-                UserWorkspaces::upgrade_link_for_team(team.uid)
-            } else {
-                let user_id = AuthStateProvider::as_ref(app)
-                    .get()
-                    .user_id()
-                    .unwrap_or_default();
-                UserWorkspaces::upgrade_link(user_id)
-            };
-
-            let mut display_name = self.display_text.clone();
-            if let Some(first) = display_name.get_mut(..1) {
-                first.make_ascii_uppercase();
-            }
-
-            // Show a BYOK option when the user's tier supports it and the provider
-            // is one that accepts user-supplied API keys.
-            let byok_available = UserWorkspaces::as_ref(app).is_byo_api_key_enabled()
-                && matches!(
-                    self.provider,
-                    LLMProvider::OpenAI | LLMProvider::Anthropic | LLMProvider::Google
-                );
-
-            let mut text_fragments = vec![
-                FormattedTextFragment::plain_text(format!(
-                    "{display_name} is not available for free users. "
-                )),
-                FormattedTextFragment::hyperlink("Upgrade", upgrade_url),
-            ];
-
-            if byok_available {
-                text_fragments.push(FormattedTextFragment::plain_text(" or ".to_string()));
-                text_fragments.push(FormattedTextFragment::hyperlink_action(
-                    "bring your own key",
-                    WorkspaceAction::ShowSettingsPageWithSearch {
-                        search_query: "api".to_string(),
-                        section: Some(SettingsSection::WarpAgent),
-                    },
-                ));
-            }
-
-            let upgrade_text = FormattedTextElement::new(
-                FormattedText::new([FormattedTextLine::Line(text_fragments)]),
-                inline_styles::font_size(appearance),
-                appearance.ui_font_family(),
-                appearance.ui_font_family(),
-                theme.disabled_ui_text_color().into_solid(),
-                HighlightedHyperlink::default(),
-            )
-            .with_hyperlink_font_color(theme.accent().into_solid())
-            .register_default_click_handlers_with_action_support(|hyperlink_lens, event, ctx| {
-                match hyperlink_lens {
-                    warpui::elements::HyperlinkLens::Url(url) => {
-                        ctx.open_url(url);
-                    }
-                    warpui::elements::HyperlinkLens::Action(action_ref) => {
-                        if let Some(action) = action_ref.as_any().downcast_ref::<WorkspaceAction>()
-                        {
-                            event.dispatch_typed_action(action.clone());
-                        }
-                    }
-                }
-            })
-            .finish();
-
-            column = column.with_child(Container::new(upgrade_text).with_margin_top(12.).finish());
-        }
 
         Some(
             ConstrainedBox::new(column.finish())

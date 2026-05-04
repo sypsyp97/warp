@@ -5,7 +5,9 @@ use pathfinder_color::ColorU;
 use warp_core::ui::appearance::Appearance;
 use warp_core::ui::theme::color::internal_colors;
 use warp_core::ui::theme::Fill;
-use warpui::elements::{ChildView, MainAxisSize};
+use warpui::elements::{
+    ChildView, Container, CrossAxisAlignment, Flex, MainAxisSize, ParentElement,
+};
 use warpui::{
     AppContext, Element, Entity, EntityId, ModelHandle, SingletonEntity as _, View, ViewContext,
     ViewHandle,
@@ -152,10 +154,29 @@ impl InlineModelSelectorView {
                         });
                     })
             });
+            let configure_model_button = ctx.add_view(|_| {
+                ActionButton::new("Configure model", ManageDefaultsTheme)
+                    .with_icon(Icon::Sliders)
+                    .with_size(ButtonSize::Small)
+                    .on_click(|ctx| {
+                        ctx.dispatch_typed_action(WorkspaceAction::ShowSettingsPageWithSearch {
+                            search_query: "BYO".to_string(),
+                            section: Some(SettingsSection::WarpAgent),
+                        });
+                    })
+            });
             let header_config = InlineMenuHeaderConfig {
                 label: "/model".to_string(),
                 trailing_element: Some(Box::new(move |_app: &AppContext| {
-                    ChildView::new(&manage_defaults_button).finish()
+                    Flex::row()
+                        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                        .with_child(ChildView::new(&configure_model_button).finish())
+                        .with_child(
+                            Container::new(ChildView::new(&manage_defaults_button).finish())
+                                .with_margin_left(8.)
+                                .finish(),
+                        )
+                        .finish()
                 })),
             };
 
