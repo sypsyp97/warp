@@ -10,7 +10,6 @@ use crate::ai::execution_profiles::{ActionPermission, WriteToPtyPermission};
 use crate::ai::llms::{LLMId, LLMPreferences, LLMPreferencesEvent};
 use crate::ai::mcp::TemplatableMCPServerManager;
 use crate::ai::paths::host_native_absolute_path;
-use crate::auth::AuthStateProvider;
 use crate::cloud_object::model::persistence::{CloudModel, CloudModelEvent};
 use crate::cloud_object::GenericStringObjectFormat::Json;
 use crate::cloud_object::JsonObjectType;
@@ -118,7 +117,6 @@ use crate::{
     editor::Event as EditorEvent,
     editor::{EditorView, TextOptions},
     settings::AISettings,
-    ui_components::blended_colors,
     util::bindings,
     view_components::{Dropdown, DropdownItem},
 };
@@ -128,7 +126,6 @@ use markdown_parser::{FormattedText, FormattedTextFragment, FormattedTextLine};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Not;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 

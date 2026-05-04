@@ -4063,7 +4063,7 @@ impl Workspace {
         // toggle behavior which will close the current modal view and then toggle Warp AI.
         if self.current_workspace_state.is_ai_assistant_panel_open
             && !self.ai_assistant_panel.is_self_or_child_focused(ctx)
-            && !self.current_workspace_state.is_any_modal_open(ctx)
+            && !self.current_workspace_state.is_any_modal_open()
         {
             ctx.focus(&self.ai_assistant_panel);
             return;
@@ -11581,7 +11581,7 @@ impl Workspace {
             && (accepted_action_type.is_none()
                 || !self
                     .current_workspace_state
-                    .is_any_non_terminal_view_open(ctx))
+                    .is_any_non_terminal_view_open())
         {
             self.focus_active_tab(ctx);
         }
@@ -11698,7 +11698,7 @@ impl Workspace {
         // If the invite modal is open, don't show the palette since it won't be visible anyway
         if !self
             .current_workspace_state
-            .is_any_non_palette_modal_open(ctx)
+            .is_any_non_palette_modal_open()
         {
             let is_palette_mode_already_open =
                 self.palette.as_ref(ctx).is_mode_enabled(palette_mode, ctx)
