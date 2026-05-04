@@ -17,7 +17,6 @@ use warp_core::send_telemetry_from_ctx;
 use warp_multi_agent_api as api;
 use warpui::{Entity, ModelContext, SingletonEntity};
 
-const MAX_RETRY_ATTEMPTS: i32 = 3;
 const MAX_PENDING_LIFECYCLE_EVENTS_PER_TARGET: usize = 200;
 
 /// Stage associated with a lifecycle error detail.
@@ -854,118 +853,6 @@ impl OrchestrationEventService {
         ctx.emit(OrchestrationEventServiceEvent::EventsReady { conversation_id });
     }
 
-    /// Drain and return all pending events for a conversation.
-    fn drain_pending_events(&mut self, conversation_id: &AIConversationId) -> Vec<PendingEvent> {
-        self.pending_events
-            .remove(conversation_id)
-            .unwrap_or_default()
-    }
-
-    /// Drains pending events for a conversation, resolves the root task ID,
-    /// and converts them to AIAgentInput variants ready for injection.
-    /// Returns None if there are no events or the conversation cannot be found
-    /// (in which case events are requeued automatically).
-    pub fn drain_events_for_request(
-        &mut self,
-        conversation_id: AIConversationId,
-        ctx: &mut ModelContext<Self>,
-    ) -> Option<(Vec<AIAgentInput>, TaskId)> {
-        let inputs = self.drain_and_convert_events(conversation_id);
-        if inputs.is_empty() {
-            return None;
-        }
-        let Some(conversation) =
-            BlocklistAIHistoryModel::as_ref(ctx).conversation(&conversation_id)
-        else {
-            self.requeue_awaiting_events(conversation_id, ctx);
-            return None;
-        };
-        Some((inputs, conversation.get_root_task_id().clone()))
-    }
-
-    /// Drains pending events for a conversation and converts them to
-    /// AIAgentInput variants ready for injection. Moves the drained events
-    /// to awaiting_server_echo_events for delivery confirmation.
-    fn drain_and_convert_events(&mut self, conversation_id: AIConversationId) -> Vec<AIAgentInput> {
-        let deliverable = self.drain_pending_events(&conversation_id);
-        if deliverable.is_empty() {
-            return vec![];
-        }
-
-        let mut messages = Vec::new();
-        let mut lifecycle_events = Vec::new();
-        for event in &deliverable {
-            match &event.detail {
-                PendingEventDetail::Message {
-                    message_id,
-                    addresses,
-                    subject,
-                    message_body,
-                } => messages.push(ReceivedMessageInput {
-                    message_id: message_id.clone(),
-                    sender_agent_id: event.source_agent_id.clone(),
-                    addresses: addresses.clone(),
-                    subject: subject.clone(),
-                    message_body: message_body.clone(),
-                }),
-                PendingEventDetail::Lifecycle { event } => lifecycle_events.push(event.clone()),
-            }
-        }
-
-        // Move to awaiting echo for delivery confirmation.
-        self.awaiting_server_echo_events
-            .entry(conversation_id)
-            .or_default()
-            .extend(deliverable);
-
-        let mut inputs = Vec::new();
-        if !messages.is_empty() {
-            inputs.push(AIAgentInput::MessagesReceivedFromAgents { messages });
-        }
-        if !lifecycle_events.is_empty() {
-            inputs.push(AIAgentInput::EventsFromAgents {
-                events: lifecycle_events,
-            });
-        }
-        inputs
-    }
-
-    /// Moves all awaiting events back to pending for retry after a failed
-    /// send attempt. Increments attempt counts and drops events that have
-    /// exhausted their retry limit.
-    pub fn requeue_awaiting_events(
-        &mut self,
-        conversation_id: AIConversationId,
-        ctx: &mut ModelContext<Self>,
-    ) {
-        let events = self
-            .awaiting_server_echo_events
-            .remove(&conversation_id)
-            .unwrap_or_default();
-        if events.is_empty() {
-            return;
-        }
-
-        let (retryable, exhausted) =
-            increment_attempt_and_partition_by_retry_limit(events, MAX_RETRY_ATTEMPTS);
-
-        if !exhausted.is_empty() {
-            log::warn!(
-                "Dropping {} orchestration events after exhausting retries",
-                exhausted.len()
-            );
-        }
-
-        if !retryable.is_empty() {
-            let queue = self.pending_events.entry(conversation_id).or_default();
-            let mut combined = retryable;
-            combined.append(queue);
-            *queue = combined;
-
-            ctx.emit(OrchestrationEventServiceEvent::EventsReady { conversation_id });
-        }
-    }
-
     /// Scans the exchange output for orchestration IDs echoed back by the
     /// server, then clears matching entries from awaiting_server_echo_events.
     fn confirm_delivery_from_exchange(
@@ -1324,20 +1211,6 @@ fn count_pending_lifecycle_events(queue: &[PendingEvent]) -> usize {
         .iter()
         .filter(|event| matches!(event.detail, PendingEventDetail::Lifecycle { .. }))
         .count()
-}
-
-/// Increment attempt counts and split events into retryable vs exhausted buckets.
-/// Exhaustion is based on `max_retry_attempts` after incrementing this attempt.
-fn increment_attempt_and_partition_by_retry_limit(
-    mut attempted_events: Vec<PendingEvent>,
-    max_retry_attempts: i32,
-) -> (Vec<PendingEvent>, Vec<PendingEvent>) {
-    for event in &mut attempted_events {
-        event.attempt_count += 1;
-    }
-    attempted_events
-        .into_iter()
-        .partition(|event| event.attempt_count < max_retry_attempts)
 }
 
 impl Default for OrchestrationEventService {

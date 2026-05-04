@@ -232,37 +232,6 @@ fn test_enforce_lifecycle_queue_cap_keeps_critical_events_even_when_over_limit()
 }
 
 #[test]
-fn test_increment_attempt_and_partition_by_retry_limit() {
-    let attempted = vec![
-        lifecycle_pending_event("retryable", "child-a", api::LifecycleEventType::Started, 0),
-        lifecycle_pending_event(
-            "exhausted-at-limit",
-            "child-b",
-            api::LifecycleEventType::Idle,
-            2,
-        ),
-        lifecycle_pending_event(
-            "already-exhausted",
-            "child-c",
-            api::LifecycleEventType::Errored,
-            3,
-        ),
-    ];
-
-    let (retryable, exhausted) = increment_attempt_and_partition_by_retry_limit(attempted, 3);
-
-    assert_eq!(retryable.len(), 1);
-    assert_eq!(retryable[0].event_id, "retryable");
-    assert_eq!(retryable[0].attempt_count, 1);
-
-    assert_eq!(exhausted.len(), 2);
-    assert_eq!(exhausted[0].event_id, "exhausted-at-limit");
-    assert_eq!(exhausted[0].attempt_count, 3);
-    assert_eq!(exhausted[1].event_id, "already-exhausted");
-    assert_eq!(exhausted[1].attempt_count, 4);
-}
-
-#[test]
 fn test_did_event_round_trip_through_server_matches_message_event_by_message_id() {
     let pending = PendingEvent {
         event_id: "event-1".to_string(),
