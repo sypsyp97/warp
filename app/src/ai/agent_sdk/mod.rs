@@ -78,7 +78,6 @@ pub(crate) mod artifact_upload;
 mod common;
 mod config_file;
 pub(crate) mod driver;
-mod environment;
 #[cfg(not(target_family = "wasm"))]
 mod integration;
 #[cfg(not(target_family = "wasm"))]
