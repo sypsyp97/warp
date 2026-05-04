@@ -51,10 +51,7 @@ pub async fn generate_multi_agent_output(
         redaction::redact_inputs(&mut params.input);
     }
 
-    let mut api_keys = params.api_keys;
-    if let Some(api_keys) = &mut api_keys {
-        api_keys.allow_use_of_warp_credits = params.allow_use_of_warp_credits_with_byok;
-    }
+    let api_keys = params.api_keys;
 
     let request = api::Request {
         task_context: Some(api::request::TaskContext {
