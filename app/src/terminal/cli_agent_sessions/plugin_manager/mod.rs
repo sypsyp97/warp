@@ -1,7 +1,4 @@
 pub(crate) mod claude;
-pub(crate) mod codex;
-pub(crate) mod gemini;
-pub(crate) mod opencode;
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
