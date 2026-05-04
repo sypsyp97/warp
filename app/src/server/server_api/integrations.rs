@@ -13,11 +13,6 @@ use warp_graphql::mutations::create_simple_integration::{
     CreateSimpleIntegration, CreateSimpleIntegrationOutput, CreateSimpleIntegrationResult,
     CreateSimpleIntegrationVariables, SimpleIntegrationConfig,
 };
-use warp_graphql::queries::get_integrations_using_environment::{
-    GetIntegrationsUsingEnvironment, GetIntegrationsUsingEnvironmentInput,
-    GetIntegrationsUsingEnvironmentOutput, GetIntegrationsUsingEnvironmentResult,
-    GetIntegrationsUsingEnvironmentVariables,
-};
 use warp_graphql::queries::get_oauth_connect_tx_status::{
     GetOAuthConnectTxStatus, GetOAuthConnectTxStatusInput, GetOAuthConnectTxStatusResult,
     GetOAuthConnectTxStatusVariables, OauthConnectTxStatus,
@@ -110,19 +105,6 @@ pub trait IntegrationsClient: 'static + IntegrationsClientBounds {
     /// * `Err` - If the transaction is not found or polling fails
     async fn poll_oauth_connect_status(&self, tx_id: String) -> Result<OauthConnectTxStatus>;
 
-    /// Gets the list of integration provider names that are using the specified environment.
-    ///
-    /// # Arguments
-    /// * `environment_id` - The ID of the environment to check
-    ///
-    /// # Returns
-    /// * `Ok(Vec<String>)` - List of provider names (e.g., ["linear", "slack"]) using this environment
-    /// * `Err` - If the query fails
-    async fn get_integrations_using_environment(
-        &self,
-        environment_id: String,
-    ) -> Result<GetIntegrationsUsingEnvironmentOutput>;
-
     /// Gets the user's GitHub connection info, including accessible repos.
     ///
     /// # Returns
@@ -203,31 +185,6 @@ impl IntegrationsClient for ServerApi {
             CreateSimpleIntegrationResult::Unknown => {
                 Err(anyhow!("Unknown error while creating integration"))
             }
-        }
-    }
-
-    async fn get_integrations_using_environment(
-        &self,
-        environment_id: String,
-    ) -> Result<GetIntegrationsUsingEnvironmentOutput> {
-        let variables = GetIntegrationsUsingEnvironmentVariables {
-            request_context: get_request_context(),
-            input: GetIntegrationsUsingEnvironmentInput { environment_id },
-        };
-
-        let operation = GetIntegrationsUsingEnvironment::build(variables);
-        let response = self.send_graphql_request(operation, None).await?;
-
-        match response.get_integrations_using_environment {
-            GetIntegrationsUsingEnvironmentResult::GetIntegrationsUsingEnvironmentOutput(
-                output,
-            ) => Ok(output),
-            GetIntegrationsUsingEnvironmentResult::UserFacingError(error) => {
-                Err(anyhow!(get_user_facing_error_message(error)))
-            }
-            GetIntegrationsUsingEnvironmentResult::Unknown => Err(anyhow!(
-                "Unknown error while getting integrations using environment"
-            )),
         }
     }
 
