@@ -89,7 +89,6 @@ mod model;
 mod oauth_flow;
 pub mod output;
 mod profiles;
-mod provider;
 pub(crate) mod retry;
 mod telemetry;
 #[cfg(test)]
