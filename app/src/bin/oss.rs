@@ -1,6 +1,12 @@
 // On Windows, we don't want to display a console window when the application is running in release
 // builds. See https://doc.rust-lang.org/reference/runtime.html#the-windows_subsystem-attribute.
-#![cfg_attr(feature = "release_bundle", windows_subsystem = "windows")]
+// Slim does not enable `release_bundle`, so gate on `not(debug_assertions)` instead — any
+// non-debug build (slim's `cargo build --release` included) hides the console; debug builds
+// keep it for panic output.
+#![cfg_attr(
+    any(feature = "release_bundle", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
 
 use anyhow::Result;
 use warp_core::{
