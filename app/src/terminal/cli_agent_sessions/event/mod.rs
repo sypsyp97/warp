@@ -61,6 +61,7 @@ const VERSIONED_PARSERS: &[EventParser] = &[v1::parse];
 /// Exported as the `WARP_CLI_AGENT_PROTOCOL_VERSION` env var on the PTY
 /// so plugins can negotiate a compatible payload format.
 #[cfg_attr(not(feature = "local_tty"), allow(dead_code))]
+#[allow(dead_code)]
 pub const fn current_protocol_version() -> u32 {
     VERSIONED_PARSERS.len() as u32
 }

@@ -6,9 +6,7 @@ use super::telemetry::{
 };
 use crate::ai::agent::{
     conversation::{AIConversationId, ConversationStatus},
-    task::TaskId,
-    AIAgentExchangeId, AIAgentInput, AIAgentOutputMessageType, LifecycleEventType,
-    ReceivedMessageInput,
+    AIAgentExchangeId, AIAgentOutputMessageType, LifecycleEventType,
 };
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -52,6 +50,7 @@ impl LifecycleEventDetailStage {
 }
 
 /// Type-specific queued data, including service-generated fields.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum PendingEventDetail {
     Message {
@@ -66,6 +65,7 @@ pub enum PendingEventDetail {
 }
 
 /// A queued event consumed by the controller.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PendingEvent {
     pub event_id: String,
@@ -89,7 +89,10 @@ pub enum SendMessageResult {
 pub enum OrchestrationEventServiceEvent {
     /// Signals that a conversation may have pending orchestration events
     /// ready to drain.
-    EventsReady { conversation_id: AIConversationId },
+    EventsReady {
+        #[allow(dead_code)]
+        conversation_id: AIConversationId,
+    },
 }
 
 /// Synchronous state manager for orchestration event queuing, delivery

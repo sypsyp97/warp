@@ -396,6 +396,7 @@ impl AIRequestUsageModel {
             || has_byo_api_key
     }
 
+    #[allow(dead_code)]
     pub fn requests_used(&self) -> usize {
         if self.next_refresh_time() <= Utc::now() {
             return 0;
@@ -441,6 +442,7 @@ impl AIRequestUsageModel {
         self.request_limit_info.is_unlimited
     }
 
+    #[allow(dead_code)]
     pub fn refresh_duration_to_string(&self) -> String {
         match self.request_limit_info.request_limit_refresh_duration {
             RequestLimitRefreshDuration::Weekly => "weekly".to_string(),

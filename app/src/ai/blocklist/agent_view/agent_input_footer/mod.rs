@@ -128,6 +128,7 @@ const START_REMOTE_CONTROL_TOOLTIP: &str = "Start remote control";
 const PLUGIN_CHIP_DEBOUNCE: Duration = Duration::from_secs(3);
 
 #[cfg_attr(target_family = "wasm", allow(dead_code))]
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PluginChipKind {
     Install,
@@ -167,6 +168,7 @@ pub struct AgentInputFooter {
     nld_button: ViewHandle<ActionButton>,
     file_button: ViewHandle<ActionButton>,
     start_remote_control_button: ViewHandle<ActionButton>,
+    #[allow(dead_code)]
     stop_remote_control_button: ViewHandle<ActionButton>,
     context_window_button: ViewHandle<ActionButton>,
     model_selector: ViewHandle<ProfileModelSelector>,

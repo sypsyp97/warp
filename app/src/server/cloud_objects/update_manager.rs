@@ -3181,6 +3181,7 @@ impl UpdateManager {
     }
 
     #[cfg_attr(target_family = "wasm", allow(dead_code))]
+    #[allow(dead_code)]
     pub fn create_scheduled_ambient_agent_online(
         &mut self,
         scheduled_ambient_agent: ScheduledAmbientAgent,
@@ -3200,6 +3201,7 @@ impl UpdateManager {
     }
 
     #[cfg_attr(target_family = "wasm", allow(dead_code))]
+    #[allow(dead_code)]
     pub fn update_scheduled_ambient_agent_online(
         &mut self,
         scheduled_ambient_agent: ScheduledAmbientAgent,
@@ -3490,6 +3492,7 @@ impl UpdateManager {
     /// sync queue from clashing with caller-managed retries and potentially creating
     /// duplicates of the object.
     #[allow(clippy::too_many_arguments)]
+    #[allow(dead_code)]
     fn create_object_online<K, M>(
         &mut self,
         model: M,
@@ -3618,6 +3621,7 @@ impl UpdateManager {
     ///
     /// The cloud model and SQLite are only updated on success. This is to prevent the
     /// sync queue from clashing with caller-managed retries.
+    #[allow(dead_code)]
     pub fn update_object_online<K, M>(
         &mut self,
         model: M,

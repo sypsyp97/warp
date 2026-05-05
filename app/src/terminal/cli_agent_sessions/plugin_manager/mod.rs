@@ -143,12 +143,14 @@ pub(crate) trait CliAgentPluginManager: Send + Sync {
 
     /// Whether the Warp notification plugin is installed.
     /// Default returns `false` (no filesystem check).
+    #[allow(dead_code)]
     fn is_installed(&self) -> bool {
         false
     }
 
     /// Whether the on-disk plugin version is below the minimum required.
     /// Default returns `false` (no filesystem check).
+    #[allow(dead_code)]
     fn needs_update(&self) -> bool {
         false
     }
@@ -186,6 +188,7 @@ pub(crate) trait CliAgentPluginManager: Send + Sync {
 
     /// Whether this agent supports version-based update checking.
     /// When `false`, the update chip is never shown; only the install chip appears.
+    #[allow(dead_code)]
     fn supports_update(&self) -> bool {
         true
     }

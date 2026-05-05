@@ -561,8 +561,7 @@ use command_corrections::rules::generic::history::History as CommandCorrectionsH
 use init::{INPUT_BOX_VISIBLE_KEY, TOGGLE_BLOCK_FILTER_KEYBINDING};
 use inline_banner::{
     render_alias_expansion_banner, render_inline_notifications_discovery_banner,
-    render_inline_notifications_error_banner, render_inline_shared_session_ended_banner,
-    render_inline_shared_session_started_banner, render_inline_ssh_wrapper_banner,
+    render_inline_notifications_error_banner, render_inline_ssh_wrapper_banner,
     render_open_in_warp_banner, render_shell_process_terminated_banner, render_vim_mode_banner,
     AliasExpansionBanner, AliasExpansionBannerAction, OpenInWarpBannerState, SSHBannerAction,
     SSHBannerState, VimModeBannerAction,
@@ -2715,8 +2714,10 @@ pub struct TerminalView {
     /// Mouse state handle for the cloud mode details panel toggle button in the pane header.
     /// Only available on non-WASM platforms (WASM uses a per-window button instead).
     #[cfg(not(target_arch = "wasm32"))]
+    #[allow(dead_code)]
     cloud_mode_details_panel_toggle_mouse_state: warpui::elements::MouseStateHandle,
     /// Mouse state handle for the ambient agent cancel button in the pane header.
+    #[allow(dead_code)]
     ambient_agent_cancel_mouse_state: warpui::elements::MouseStateHandle,
 
     /// First-time cloud agent setup view (full-screen overlay for creating initial environment).
@@ -4358,6 +4359,7 @@ impl TerminalView {
         self.block_completed_callbacks.push(Box::new(callback));
     }
 
+    #[allow(dead_code)]
     fn set_pending_cloud_mode_start_callback(
         &mut self,
         callback: TerminalViewCallback,
@@ -4378,6 +4380,7 @@ impl TerminalView {
         ));
     }
 
+    #[allow(dead_code)]
     fn clear_pending_cloud_mode_start_callback(&mut self) {
         if let Some(handle) = self.pending_cloud_mode_start_abort_handle.take() {
             handle.abort();
@@ -6542,6 +6545,7 @@ impl TerminalView {
         FeatureFlag::CloudMode.is_enabled() && task_id.is_some()
     }
 
+    #[allow(dead_code)]
     fn can_show_cloud_mode_details_ui(&self, app: &AppContext) -> bool {
         Self::can_show_cloud_mode_details_ui_for_task_id(
             self.ambient_agent_task_id_for_details_panel(app),
@@ -14971,7 +14975,6 @@ impl TerminalView {
                         // Add the common copying actions
                         items.extend(self.ai_block_copying_menu_items(
                             *rich_content_view_id,
-                            ai_metadata.conversation_id,
                             hovered_link.clone(),
                             &model,
                             ctx,
@@ -15753,7 +15756,6 @@ impl TerminalView {
     fn ai_block_copying_menu_items(
         &self,
         ai_block_view_id: EntityId,
-        ai_conversation_id: AIConversationId,
         hovered_link: Option<RichContentLink>,
         model: &TerminalModel,
         ctx: &mut ViewContext<Self>,
@@ -15937,13 +15939,7 @@ impl TerminalView {
     ) {
         let mut menu_items = {
             let model = self.model.lock();
-            self.ai_block_copying_menu_items(
-                ai_block_view_id,
-                ai_conversation_id,
-                None,
-                &model,
-                ctx,
-            )
+            self.ai_block_copying_menu_items(ai_block_view_id, None, &model, ctx)
         };
 
         if !cfg!(target_family = "wasm") {
@@ -21246,7 +21242,6 @@ impl TerminalView {
         &self,
         appearance: &Appearance,
         app: &AppContext,
-        model: &TerminalModel,
     ) -> HashMap<usize, Box<dyn Element>> {
         let mut inline_banners = HashMap::new();
 
@@ -21515,7 +21510,7 @@ impl TerminalView {
         let padding_x = self.size_info.padding_x_px;
         let sessions = self.sessions.clone();
 
-        let inline_banners = self.render_inline_banners(appearance, app, model);
+        let inline_banners = self.render_inline_banners(appearance, app);
 
         let mut subshell_separators = HashMap::new();
 

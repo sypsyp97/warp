@@ -6,6 +6,7 @@
 /// The pool setting is the key bit: reqwest's default 90-second idle timeout holds sockets
 /// open past a test's return, which nextest's leak detector flags on retry-exhaustion tests
 /// that spin up multiple connections.
+#[allow(dead_code)]
 pub(super) fn build_test_http_client() -> http_client::Client {
     let builder = reqwest::ClientBuilder::new()
         .tls_built_in_native_certs(false)

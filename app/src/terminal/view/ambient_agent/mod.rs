@@ -30,7 +30,7 @@ use crate::terminal::shared_session;
 use crate::terminal::TerminalManager;
 use crate::terminal::TerminalView;
 use warpui::geometry::vector::Vector2F;
-use warpui::{AppContext, ModelHandle, SingletonEntity, ViewHandle, WindowId};
+use warpui::{AppContext, ModelHandle, ViewHandle, WindowId};
 
 /// Creates a cloud mode terminal view and manager for ambient agent sessions.
 ///

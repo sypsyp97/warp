@@ -1,3 +1,7 @@
+// Notification storage primitives are unreachable in slim (no live producer
+// path constructs them); keep the types but silence dead-code warnings.
+#![allow(dead_code)]
+
 use enum_iterator::Sequence;
 use instant::Instant;
 use uuid::Uuid;

@@ -558,6 +558,7 @@ impl BackingView for TerminalView {
 
 impl TerminalView {
     /// Render the cancel button for cancelling the ambient agent task while it's loading.
+    #[allow(dead_code)]
     fn render_ambient_agent_cancel_button(&self, app: &AppContext) -> Box<dyn Element> {
         let appearance = Appearance::as_ref(app);
         let theme = appearance.theme();
@@ -583,6 +584,7 @@ impl TerminalView {
     /// Render the info button for toggling the cloud mode details panel.
     /// Only available on non-WASM platforms (WASM uses a per-window button instead).
     #[cfg(not(target_arch = "wasm32"))]
+    #[allow(dead_code)]
     fn render_cloud_mode_details_toggle_button(&self, app: &AppContext) -> Box<dyn Element> {
         let appearance = Appearance::as_ref(app);
         let theme = appearance.theme();

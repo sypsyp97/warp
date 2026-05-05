@@ -1,3 +1,7 @@
+// Toast UI is not surfaced in slim (the workspace stores a perma-None handle);
+// keep the module compilable but silence the dead-code warnings.
+#![allow(dead_code)]
+
 use std::time::Duration;
 
 use pathfinder_geometry::vector::vec2f;

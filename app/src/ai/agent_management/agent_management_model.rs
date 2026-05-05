@@ -1,3 +1,9 @@
+// The notification production paths in this module are dormant in slim — the
+// surrounding mailbox/toast UI was never wired up — but the model itself is
+// still a live singleton subscriber. Silence dead-code warnings on the
+// unreachable producer side while keeping the structure intact.
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
 use warpui::{AppContext, Entity, EntityId, ModelContext, SingletonEntity, WindowId};

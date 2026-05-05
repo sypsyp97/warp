@@ -1388,7 +1388,7 @@ impl BlocklistAIController {
             vec![],
             ctx,
         );
-        let mut request_input = RequestInput::for_actions_results(
+        let request_input = RequestInput::for_actions_results(
             finished_results,
             context,
             &self.active_session,

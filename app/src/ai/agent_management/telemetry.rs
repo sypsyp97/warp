@@ -39,6 +39,7 @@ pub enum FilterType {
 #[strum_discriminants(derive(EnumIter))]
 pub enum AgentManagementTelemetryEvent {
     /// User toggled the agent management view open or closed
+    #[allow(dead_code)]
     ViewToggled { is_open: bool },
     /// User spawned a new local agent
     SpawnNewLocalAgent,

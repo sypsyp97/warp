@@ -1,3 +1,8 @@
+// The notification mailbox view is not surfaced in slim (workspace stores
+// a perma-None handle); keep the module compilable but silence dead-code
+// warnings.
+#![allow(dead_code)]
+
 use warp_core::ui::theme::color::internal_colors;
 use warpui::elements::new_scrollable::{ScrollableAppearance, SingleAxisConfig};
 use warpui::elements::{

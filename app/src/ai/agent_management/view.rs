@@ -816,6 +816,7 @@ impl AgentManagementView {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn apply_environment_filter_from_link(
         &mut self,
         environment_id: String,

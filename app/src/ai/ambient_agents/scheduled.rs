@@ -148,6 +148,7 @@ impl JsonModel for ScheduledAmbientAgent {
 }
 
 /// Parameters for updating a scheduled ambient agent.
+#[allow(dead_code)]
 pub struct UpdateScheduleParams {
     /// The new name of the scheduled agent. If not provided, the name will not be updated.
     pub name: Option<String>,
@@ -191,6 +192,7 @@ pub struct ScheduledAgentManager {
 }
 
 #[cfg_attr(target_family = "wasm", allow(dead_code))]
+#[allow(dead_code)]
 impl ScheduledAgentManager {
     pub fn new(ctx: &mut ModelContext<Self>) -> Self {
         ctx.subscribe_to_model(

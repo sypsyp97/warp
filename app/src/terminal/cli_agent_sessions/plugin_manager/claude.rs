@@ -213,6 +213,7 @@ static UPDATE_INSTRUCTIONS: LazyLock<PluginInstructions> = LazyLock::new(|| Plug
     post_install_notes: &["Restart Claude Code to activate the update."],
 });
 
+#[allow(dead_code)]
 fn check_installed(claude_dir: &Path) -> bool {
     let plugins_path = claude_dir.join("plugins").join("installed_plugins.json");
     let Ok(contents) = fs::read_to_string(plugins_path) else {

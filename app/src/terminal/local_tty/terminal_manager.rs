@@ -2,7 +2,6 @@ use crate::ai::llms::{LLMPreferences, LLMPreferencesEvent};
 use crate::auth::auth_state::AuthState;
 use crate::auth::AuthStateProvider;
 use crate::terminal::model::terminal_model::ExitReason;
-use crate::terminal::shared_session::replay_agent_conversations::reconstruct_response_events_from_conversations;
 use crate::terminal::shared_session::shared_handlers::{
     apply_auto_approve_agent_actions_update, apply_cli_agent_state_update, apply_input_mode_update,
     apply_selected_agent_model_update, apply_selected_conversation_update,
@@ -40,8 +39,7 @@ use crate::terminal::cli_agent_sessions::{
     CLIAgentInputState, CLIAgentSessionsModel, CLIAgentSessionsModelEvent,
 };
 use session_sharing_protocol::common::{
-    ActivePrompt, AgentPromptFailureReason, CLIAgentSessionState, CommandExecutionFailureReason,
-    ControlAction, ControlActionFailureReason, SelectedAgentModel,
+    ActivePrompt, CLIAgentSessionState, CommandExecutionFailureReason, SelectedAgentModel,
     UniversalDeveloperInputContextUpdate, WriteToPtyFailureReason,
 };
 #[cfg(not(any(test, feature = "integration_tests")))]
@@ -52,10 +50,7 @@ use settings::Setting as _;
 use warpui::r#async::executor::Background;
 use warpui::{AppContext, ModelContext, ModelHandle, SingletonEntity, ViewHandle, WindowId};
 
-use warp_core::execution_mode::AppExecutionMode;
-
 use crate::ai::active_agent_views_model::ActiveAgentViewsModel;
-use crate::ai::agent::conversation::AIConversation;
 use crate::ai::blocklist::agent_view::{AgentViewController, AgentViewControllerEvent};
 use crate::ai::blocklist::{
     BlocklistAIContextEvent, BlocklistAIContextModel, BlocklistAIControllerEvent,
